@@ -10,15 +10,21 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Screen } from '@/components/common/Screen';
 import { colors } from '@/theme';
+import { useRouter } from 'expo-router';
+
 
 export default function CadastroScreen() {
+  const router = useRouter();
+
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
 
   function handleContinue() {
-    console.log({
-      name,
-      phone,
+    router.push({
+      pathname: '/boas-vindas',
+      params: {
+        name: name.trim(),
+      },
     });
   }
 
