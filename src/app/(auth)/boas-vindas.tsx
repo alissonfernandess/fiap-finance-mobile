@@ -1,12 +1,12 @@
 import {
-    useLocalSearchParams,
-    useRouter,
+  useLocalSearchParams,
+  useRouter,
 } from 'expo-router';
 import {
-    ImageBackground,
-    Pressable,
-    StyleSheet,
-    View,
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
@@ -34,7 +34,7 @@ export default function BoasVindasScreen() {
       <ImageBackground
         source={require('../../../assets/images/BackgroundCadastro.png')}
         resizeMode="cover"
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       <Screen

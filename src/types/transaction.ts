@@ -15,4 +15,6 @@ export interface Transaction {
   value: number;
   operation: TransactionOperation;
   type: TransactionType;
+  category?: string;
+  receiptUrl?: string;
 }

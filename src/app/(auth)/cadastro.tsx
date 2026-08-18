@@ -33,7 +33,7 @@ export default function CadastroScreen() {
       <ImageBackground
         source={require('../../../assets/images/BackgroundCadastro.png')}
         resizeMode="cover"
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       <Screen

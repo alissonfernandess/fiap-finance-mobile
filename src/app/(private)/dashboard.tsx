@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import {
   Pressable,
   StyleSheet,
@@ -9,14 +10,14 @@ import { AppText } from '@/components/common/AppText';
 import { Screen } from '@/components/common/Screen';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
-import { transactions } from '@/mocks/transactions';
+import { useTransactions } from '@/contexts/TransactionContext';
 import { colors } from '@/theme';
-import { useRouter } from 'expo-router';
-
-const recentTransactions = transactions.slice(0, 3);
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { transactions } = useTransactions();
+
+  const recentTransactions = transactions.slice(0, 3);
 
   function handleOpenMenu() {
     console.log('Abrir menu');
@@ -25,7 +26,7 @@ export default function DashboardScreen() {
   function handleOpenStatement() {
     router.push('/(private)/extrato');
   }
-  
+
   return (
     <Screen scrollable style={styles.screen}>
       <View style={styles.topBar}>

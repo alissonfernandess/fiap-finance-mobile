@@ -1,9 +1,8 @@
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    type PressableProps,
-    type ViewStyle,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  type PressableProps
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
@@ -29,13 +28,15 @@ export function Button({
     <Pressable
       {...rest}
       disabled={isDisabled}
-      style={({ pressed }) => [
-        styles.button,
-        fullWidth && styles.fullWidth,
-        pressed && styles.pressed,
-        isDisabled && styles.disabled,
-        typeof style === 'function' ? style({ pressed }) : style as ViewStyle,
-      ]}
+      style={(state) => [
+      styles.button,
+      fullWidth && styles.fullWidth,
+      state.pressed && styles.pressed,
+      isDisabled && styles.disabled,
+      typeof style === 'function'
+        ? style(state)
+        : style,
+    ]}
     >
       {loading ? (
         <ActivityIndicator color={colors.textPrimary} />

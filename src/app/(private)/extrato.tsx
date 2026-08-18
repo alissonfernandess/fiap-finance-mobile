@@ -44,6 +44,10 @@ export default function ExtratoScreen() {
     });
   }, [search, filter]);
 
+  function handleAddTransaction() {
+    router.push('/(private)/transacao/nova');
+}
+
   function handleTransactionPress(transaction: Transaction) {
     console.log('Transação selecionada:', transaction.id);
   }
@@ -52,21 +56,20 @@ export default function ExtratoScreen() {
     <Screen style={styles.screen}>
       <View style={styles.header}>
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          hitSlop={12}
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="arrow-back-outline"
-            size={24}
-            color={colors.textPrimary}
-          />
-        </Pressable>
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar transação"
+            onPress={handleAddTransaction}
+            style={({ pressed }) => [
+                styles.floatingButton,
+                pressed && styles.pressed,
+            ]}
+            >
+            <Ionicons
+                name="add-outline"
+                size={30}
+                color={colors.textPrimary}
+            />
+            </Pressable>
 
         <AppText variant="headline">
           Extrato
@@ -158,4 +161,17 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.7,
   },
+
+  floatingButton: {
+  position: 'absolute',
+  right: 4,
+  bottom: 24,
+  width: 56,
+  height: 56,
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: 28,
+  backgroundColor: colors.primaryLight,
+},
+
 });
