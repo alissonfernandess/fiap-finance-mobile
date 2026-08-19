@@ -2,56 +2,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
-    FlatList,
-    Pressable,
-    StyleSheet,
-    View,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
 import { Screen } from '@/components/common/Screen';
 import {
-    TransactionFilters,
-    type TransactionFilter,
+  TransactionFilters,
+  type TransactionFilter,
 } from '@/components/transactions/TransactionFilters';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
-import { transactions } from '@/mocks/transactions';
+import { useTransactions } from '@/contexts/TransactionContext';
 import { colors } from '@/theme';
 import type { Transaction } from '@/types/transaction';
 
 export default function ExtratoScreen() {
   const router = useRouter();
+  const { transactions } = useTransactions();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] =
     useState<TransactionFilter>('all');
 
   const filteredTransactions = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLocaleLowerCase('pt-BR');
+  const normalizedSearch = search
+    .trim()
+    .toLowerCase();
 
-    return transactions.filter((transaction) => {
-      const matchesSearch = transaction.description
-        .toLocaleLowerCase('pt-BR')
+  return transactions.filter((transaction) => {
+    const matchesSearch =
+      transaction.description
+        .toLowerCase()
         .includes(normalizedSearch);
 
-      const matchesFilter =
-        filter === 'all' ||
-        transaction.operation === filter;
+    const matchesFilter =
+      filter === 'all' ||
+      transaction.operation === filter;
 
-      return matchesSearch && matchesFilter;
-    });
-  }, [search, filter]);
+    return matchesSearch && matchesFilter;
+  });
+}, [transactions, search, filter]);
 
   function handleAddTransaction() {
     router.push('/(private)/transacao/nova');
 }
 
   function handleTransactionPress(transaction: Transaction) {
-    console.log('Transação selecionada:', transaction.id);
-  }
-
+  router.push({
+    pathname: '/(private)/transacao/[id]',
+    params: {
+      id: transaction.id,
+    },
+  });
+}
   return (
     <Screen style={styles.screen}>
       <View style={styles.header}>

@@ -1,19 +1,29 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-    createContext,
-    useContext,
-    useMemo,
-    useReducer,
-    type PropsWithChildren,
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+  type PropsWithChildren,
 } from 'react';
 
 import { transactions as initialTransactions } from '@/mocks/transactions';
 import type { Transaction } from '@/types/transaction';
+
+const TRANSACTIONS_STORAGE_KEY =
+  '@fiap-finance-mobile:transactions';
 
 interface TransactionState {
   transactions: Transaction[];
 }
 
 type TransactionAction =
+  | {
+      type: 'LOAD_TRANSACTIONS';
+      payload: Transaction[];
+    }
   | {
       type: 'ADD_TRANSACTION';
       payload: Transaction;
@@ -32,13 +42,16 @@ type TransactionAction =
 
 interface TransactionContextValue {
   transactions: Transaction[];
+
   addTransaction: (
     transaction: Omit<Transaction, 'id'>,
   ) => void;
+
   updateTransaction: (
     id: string,
     data: Partial<Transaction>,
   ) => void;
+
   deleteTransaction: (id: string) => void;
 }
 
@@ -52,6 +65,12 @@ function transactionReducer(
   action: TransactionAction,
 ): TransactionState {
   switch (action.type) {
+    case 'LOAD_TRANSACTIONS':
+      return {
+        ...state,
+        transactions: action.payload,
+      };
+
     case 'ADD_TRANSACTION':
       return {
         ...state,
@@ -98,6 +117,63 @@ export function TransactionProvider({
       transactions: initialTransactions,
     },
   );
+
+  const [isStorageLoaded, setIsStorageLoaded] =
+    useState(false);
+
+  useEffect(() => {
+    async function loadTransactions() {
+      try {
+        const storedTransactions =
+          await AsyncStorage.getItem(
+            TRANSACTIONS_STORAGE_KEY,
+          );
+
+        if (storedTransactions) {
+          const parsedTransactions =
+            JSON.parse(
+              storedTransactions,
+            ) as Transaction[];
+
+          dispatch({
+            type: 'LOAD_TRANSACTIONS',
+            payload: parsedTransactions,
+          });
+        }
+      } catch (error) {
+        console.error(
+          'Erro ao carregar transações:',
+          error,
+        );
+      } finally {
+        setIsStorageLoaded(true);
+      }
+    }
+
+    loadTransactions();
+  }, []);
+
+  useEffect(() => {
+    if (!isStorageLoaded) {
+      return;
+    }
+
+    async function saveTransactions() {
+      try {
+        await AsyncStorage.setItem(
+          TRANSACTIONS_STORAGE_KEY,
+          JSON.stringify(state.transactions),
+        );
+      } catch (error) {
+        console.error(
+          'Erro ao salvar transações:',
+          error,
+        );
+      }
+    }
+
+    saveTransactions();
+  }, [state.transactions, isStorageLoaded]);
 
   const value = useMemo<TransactionContextValue>(
     () => ({
