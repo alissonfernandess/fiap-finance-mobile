@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
 import { AppText } from '@/components/common/AppText';
 import { Screen } from '@/components/common/Screen';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
+import { SideMenu } from '@/components/navigation/SideMenu';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { useTransactions } from '@/contexts/TransactionContext';
 import { colors } from '@/theme';
@@ -17,70 +19,102 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { transactions } = useTransactions();
 
+  const [isMenuVisible, setIsMenuVisible] =
+    useState(false);
+
   const recentTransactions = transactions.slice(0, 3);
 
+  const balance = transactions.reduce(
+  (total, transaction) => {
+    if (transaction.operation === 'income') {
+      return total + transaction.value;
+    }
+
+    return total - transaction.value;
+  },
+  0,
+);
+
   function handleOpenMenu() {
-    console.log('Abrir menu');
+    setIsMenuVisible(true);
   }
 
   function handleOpenStatement() {
     router.push('/(private)/extrato');
   }
 
+  function handleTransactionPress(
+    transactionId: string,
+  ) {
+    router.push({
+      pathname: '/(private)/transacao/[id]',
+      params: {
+        id: transactionId,
+      },
+    });
+  }
+
   return (
-    <Screen scrollable style={styles.screen}>
-      <View style={styles.topBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Abrir menu"
-          hitSlop={12}
-          onPress={handleOpenMenu}
-          style={({ pressed }) => [
-            styles.menuButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons
-            name="menu-outline"
-            size={26}
-            color={colors.textPrimary}
-          />
-        </Pressable>
-      </View>
+    <>
+      <Screen scrollable style={styles.screen}>
+        <View style={styles.topBar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Abrir menu"
+            hitSlop={12}
+            onPress={handleOpenMenu}
+            style={({ pressed }) => [
+              styles.menuButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="menu-outline"
+              size={26}
+              color={colors.textPrimary}
+            />
+          </Pressable>
+        </View>
 
-      <BalanceCard
-        userName="Felipe"
-        balance={2000}
-      />
+        <BalanceCard
+          userName="Felipe"
+          balance={balance}
+        />
 
-      <View style={styles.statementHeader}>
-        <AppText variant="headline">
-          Extrato
-        </AppText>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Ver extrato completo"
-          onPress={handleOpenStatement}
-        >
-          <AppText color={colors.textSecondary}>
-            Ver todos
+        <View style={styles.statementHeader}>
+          <AppText variant="headline">
+            Extrato
           </AppText>
-        </Pressable>
-      </View>
 
-      <View style={styles.transactionList}>
-        {recentTransactions.map((transaction) => (
-          <TransactionItem
-            key={transaction.id}
-            transaction={transaction}
-            onPress={() => {
-              console.log('Transação:', transaction.id);
-            }}
-          />
-        ))}
-      </View>
-    </Screen>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Ver extrato completo"
+            onPress={handleOpenStatement}
+          >
+            <AppText color={colors.textSecondary}>
+              Ver todos
+            </AppText>
+          </Pressable>
+        </View>
+
+        <View style={styles.transactionList}>
+          {recentTransactions.map((transaction) => (
+            <TransactionItem
+              key={transaction.id}
+              transaction={transaction}
+              onPress={() =>
+                handleTransactionPress(transaction.id)
+              }
+            />
+          ))}
+        </View>
+      </Screen>
+
+      <SideMenu
+        visible={isMenuVisible}
+        onClose={() => setIsMenuVisible(false)}
+      />
+    </>
   );
 }
 
