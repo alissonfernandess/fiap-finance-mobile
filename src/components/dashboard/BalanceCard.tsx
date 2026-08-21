@@ -4,7 +4,7 @@ import {
   ImageBackground,
   Pressable,
   StyleSheet,
-  View
+  View,
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
@@ -13,6 +13,8 @@ import { colors, fontFamily } from '@/theme';
 interface BalanceCardProps {
   userName: string;
   balance: number;
+  totalIncome: number;
+  totalExpense: number;
 }
 
 function formatCurrency(value: number) {
@@ -25,17 +27,24 @@ function formatCurrency(value: number) {
 export function BalanceCard({
   userName,
   balance,
+  totalIncome,
+  totalExpense,
 }: BalanceCardProps) {
   const [isHidden, setIsHidden] = useState(false);
 
-  return (
-   <ImageBackground
-        source={require('../../../assets/images/BalanceCardBackground.png')}
-        resizeMode="cover"
-        imageStyle={styles.backgroundImage}
-        style={styles.card}
-        >
+  function displayValue(value: number) {
+    return isHidden
+      ? '••••••'
+      : formatCurrency(value);
+  }
 
+  return (
+    <ImageBackground
+      source={require('../../../assets/images/BalanceCardBackground.png')}
+      resizeMode="cover"
+      imageStyle={styles.backgroundImage}
+      style={styles.card}
+    >
       <AppText style={styles.greeting}>
         Olá, {userName}
       </AppText>
@@ -49,23 +58,31 @@ export function BalanceCard({
 
       <View style={styles.balanceRow}>
         <AppText variant="headline">
-          {isHidden ? '••••••••' : formatCurrency(balance)}
+          {displayValue(balance)}
         </AppText>
 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            isHidden ? 'Mostrar saldo' : 'Ocultar saldo'
+            isHidden
+              ? 'Mostrar valores'
+              : 'Ocultar valores'
           }
           hitSlop={12}
-          onPress={() => setIsHidden((current) => !current)}
+          onPress={() =>
+            setIsHidden((current) => !current)
+          }
           style={({ pressed }) => [
             styles.eyeButton,
             pressed && styles.pressed,
           ]}
         >
           <Ionicons
-            name={isHidden ? 'eye-off-outline' : 'eye-outline'}
+            name={
+              isHidden
+                ? 'eye-off-outline'
+                : 'eye-outline'
+            }
             size={20}
             color={colors.textPrimary}
           />
@@ -73,23 +90,68 @@ export function BalanceCard({
       </View>
 
       <View style={styles.divider} />
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryItem}>
+          <View style={styles.summaryLabel}>
+            <Ionicons
+              name="arrow-up-circle-outline"
+              size={18}
+              color={colors.income}
+            />
+
+            <AppText color={colors.textSecondary}>
+              Receitas
+            </AppText>
+          </View>
+
+          <AppText
+            color={colors.income}
+            style={styles.summaryValue}
+          >
+            {displayValue(totalIncome)}
+          </AppText>
+        </View>
+
+        <View style={styles.verticalDivider} />
+
+        <View style={styles.summaryItem}>
+          <View style={styles.summaryLabel}>
+            <Ionicons
+              name="arrow-down-circle-outline"
+              size={18}
+              color={colors.expense}
+            />
+
+            <AppText color={colors.textSecondary}>
+              Despesas
+            </AppText>
+          </View>
+
+          <AppText
+            color={colors.expense}
+            style={styles.summaryValue}
+          >
+            {displayValue(totalExpense)}
+          </AppText>
+        </View>
+      </View>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    borderRadius: 16,
+  },
 
-    backgroundImage: {
-        borderRadius: 16,
-    },
-
-    card: {
-        minHeight: 170,
-        overflow: 'hidden',
-        padding: 20,
-        borderRadius: 16,
-        backgroundColor: colors.primary,
-    },
+  card: {
+    minHeight: 230,
+    overflow: 'hidden',
+    padding: 20,
+    borderRadius: 16,
+    backgroundColor: colors.primary,
+  },
 
   greeting: {
     fontFamily: fontFamily.bold,
@@ -102,10 +164,10 @@ const styles = StyleSheet.create({
   },
 
   balanceRow: {
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
   },
 
   eyeButton: {
@@ -119,6 +181,34 @@ const styles = StyleSheet.create({
     height: 1,
     marginTop: 8,
     backgroundColor: colors.textPrimary,
+    opacity: 0.25,
+  },
+
+  summaryRow: {
+    flexDirection: 'row',
+    marginTop: 18,
+  },
+
+  summaryItem: {
+    flex: 1,
+  },
+
+  summaryLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+
+  summaryValue: {
+    marginTop: 6,
+    fontFamily: fontFamily.bold,
+  },
+
+  verticalDivider: {
+    width: 1,
+    marginHorizontal: 14,
+    backgroundColor: colors.textPrimary,
+    opacity: 0.25,
   },
 
   pressed: {

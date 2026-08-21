@@ -24,16 +24,29 @@ export default function DashboardScreen() {
 
   const recentTransactions = transactions.slice(0, 3);
 
-  const balance = transactions.reduce(
-  (total, transaction) => {
-    if (transaction.operation === 'income') {
-      return total + transaction.value;
-    }
+  const totalIncome = transactions
+    .filter(
+      (transaction) =>
+        transaction.operation === 'income',
+    )
+    .reduce(
+      (total, transaction) =>
+        total + transaction.value,
+      0,
+    );
 
-    return total - transaction.value;
-  },
-  0,
-);
+  const totalExpense = transactions
+    .filter(
+      (transaction) =>
+        transaction.operation === 'expense',
+    )
+    .reduce(
+      (total, transaction) =>
+        total + transaction.value,
+      0,
+    );
+
+  const balance = totalIncome - totalExpense;
 
   function handleOpenMenu() {
     setIsMenuVisible(true);
@@ -79,6 +92,8 @@ export default function DashboardScreen() {
         <BalanceCard
           userName="Felipe"
           balance={balance}
+          totalIncome={totalIncome}
+          totalExpense={totalExpense}
         />
 
         <View style={styles.statementHeader}>
@@ -98,21 +113,43 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.transactionList}>
-          {recentTransactions.map((transaction) => (
-            <TransactionItem
-              key={transaction.id}
-              transaction={transaction}
-              onPress={() =>
-                handleTransactionPress(transaction.id)
-              }
-            />
-          ))}
+          {recentTransactions.length > 0 ? (
+            recentTransactions.map((transaction) => (
+              <TransactionItem
+                key={transaction.id}
+                transaction={transaction}
+                onPress={() =>
+                  handleTransactionPress(
+                    transaction.id,
+                  )
+                }
+              />
+            ))
+          ) : (
+            <View style={styles.emptyState}>
+              <Ionicons
+                name="receipt-outline"
+                size={32}
+                color={colors.textMuted}
+              />
+
+              <AppText
+                color={colors.textSecondary}
+                align="center"
+                style={styles.emptyText}
+              >
+                Nenhuma transação cadastrada.
+              </AppText>
+            </View>
+          )}
         </View>
       </Screen>
 
       <SideMenu
         visible={isMenuVisible}
-        onClose={() => setIsMenuVisible(false)}
+        onClose={() =>
+          setIsMenuVisible(false)
+        }
       />
     </>
   );
@@ -147,6 +184,17 @@ const styles = StyleSheet.create({
 
   transactionList: {
     marginTop: 8,
+  },
+
+  emptyState: {
+    minHeight: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+
+  emptyText: {
+    marginTop: 12,
   },
 
   pressed: {

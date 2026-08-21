@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-    Modal,
-    Pressable,
-    StyleSheet,
-    View,
+  Modal,
+  Pressable,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
@@ -77,6 +77,11 @@ export function SideMenu({
     router.replace('/(auth)/cadastro');
   }
 
+  function navigateToAnalysis() {
+  onClose();
+  router.push('/(private)/analise');
+}
+
   return (
     <Modal
       visible={visible}
@@ -125,26 +130,31 @@ export function SideMenu({
             </Pressable>
           </View>
 
-          <View style={styles.navigation}>
-            <MenuItem
-              icon="home-outline"
-              label="Início"
-              onPress={navigateToDashboard}
-            />
+         <View style={styles.navigation}>
+          <MenuItem
+            icon="home-outline"
+            label="Início"
+            onPress={navigateToDashboard}
+          />
 
-            <MenuItem
-              icon="receipt-outline"
-              label="Extrato"
-              onPress={navigateToStatement}
-            />
+          <MenuItem
+            icon="receipt-outline"
+            label="Extrato"
+            onPress={navigateToStatement}
+          />
 
-            <MenuItem
-              icon="add-circle-outline"
-              label="Nova transação"
-              onPress={navigateToNewTransaction}
-            />
-          </View>
+          <MenuItem
+            icon="stats-chart-outline"
+            label="Análise financeira"
+            onPress={navigateToAnalysis}
+          />
 
+          <MenuItem
+            icon="add-circle-outline"
+            label="Nova transação"
+            onPress={navigateToNewTransaction}
+          />
+        </View>
           <View style={styles.footer}>
             <MenuItem
               icon="log-out-outline"
