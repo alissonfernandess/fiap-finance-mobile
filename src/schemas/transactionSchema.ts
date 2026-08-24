@@ -22,12 +22,16 @@ function parseAmount(value: string) {
       .replace(',', '.'),
   );
 }
+
 export const transactionSchema = z.object({
   description: z
     .string()
     .trim()
     .min(3, 'Informe pelo menos 3 caracteres')
-    .max(80, 'A descrição deve ter no máximo 80 caracteres'),
+    .max(
+      80,
+      'A descrição deve ter no máximo 80 caracteres',
+    ),
 
   amount: z
     .string()
@@ -37,7 +41,10 @@ export const transactionSchema = z.object({
       (value) => {
         const amount = parseAmount(value);
 
-        return Number.isFinite(amount) && amount > 0;
+        return (
+          Number.isFinite(amount) &&
+          amount > 0
+        );
       },
       {
         message: 'Informe um valor maior que zero',
@@ -57,7 +64,9 @@ export const transactionSchema = z.object({
     .min(1, 'Informe a data')
     .refine(
       (value) => {
-        const date = new Date(`${value}T00:00:00`);
+        const date = new Date(
+          `${value}T00:00:00`,
+        );
 
         return !Number.isNaN(date.getTime());
       },
