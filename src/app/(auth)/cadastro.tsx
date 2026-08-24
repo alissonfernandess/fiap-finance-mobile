@@ -1,5 +1,7 @@
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   ImageBackground,
   StyleSheet,
   View,
@@ -9,23 +11,48 @@ import { AppText } from '@/components/common/AppText';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Screen } from '@/components/common/Screen';
+import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/theme';
-import { useRouter } from 'expo-router';
-
 
 export default function CadastroScreen() {
   const router = useRouter();
+  const { saveUserName } = useUser();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleContinue() {
-    router.push({
-      pathname: '/boas-vindas',
-      params: {
-        name: name.trim(),
-      },
-    });
+  async function handleContinue() {
+    const formattedName = name.trim();
+
+    if (!formattedName || !phone.trim()) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      await saveUserName(formattedName);
+
+      router.push({
+        pathname: '/boas-vindas',
+        params: {
+          name: formattedName,
+        },
+      });
+    } catch (error) {
+      console.error(
+        'Erro ao cadastrar usuário:',
+        error,
+      );
+
+      Alert.alert(
+        'Não foi possível continuar',
+        'Tente cadastrar sua conta novamente.',
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -68,9 +95,17 @@ export default function CadastroScreen() {
           />
 
           <Button
-            title="Continuar"
+            title={
+              isSaving
+                ? 'Salvando...'
+                : 'Continuar'
+            }
             onPress={handleContinue}
-            disabled={!name.trim() || !phone.trim()}
+            disabled={
+              !name.trim() ||
+              !phone.trim() ||
+              isSaving
+            }
             style={styles.button}
           />
         </View>

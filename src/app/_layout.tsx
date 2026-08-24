@@ -6,6 +6,7 @@ import {
 import { Stack } from 'expo-router';
 
 import { TransactionProvider } from '@/contexts/TransactionContext';
+import { UserProvider } from '@/contexts/UserContext';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -18,15 +19,17 @@ export default function RootLayout() {
   }
 
   return (
-    <TransactionProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: {
-            backgroundColor: '#091B32',
-          },
-        }}
-      />
-    </TransactionProvider>
+    <UserProvider>
+      <TransactionProvider>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: '#091B32',
+            },
+          }}
+        />
+      </TransactionProvider>
+    </UserProvider>
   );
 }

@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
+import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/theme';
 
 interface SideMenuProps {
@@ -44,7 +45,10 @@ function MenuItem({
         color={color}
       />
 
-      <AppText color={color} style={styles.menuLabel}>
+      <AppText
+        color={color}
+        style={styles.menuLabel}
+      >
         {label}
       </AppText>
     </Pressable>
@@ -56,6 +60,7 @@ export function SideMenu({
   onClose,
 }: SideMenuProps) {
   const router = useRouter();
+  const { clearUser } = useUser();
 
   function navigateToDashboard() {
     onClose();
@@ -67,20 +72,29 @@ export function SideMenu({
     router.push('/(private)/extrato');
   }
 
+  function navigateToAnalysis() {
+    onClose();
+    router.push('/(private)/analise');
+  }
+
   function navigateToNewTransaction() {
     onClose();
     router.push('/(private)/transacao/nova');
   }
 
-  function handleLogout() {
-    onClose();
-    router.replace('/(auth)/cadastro');
-  }
+  async function handleLogout() {
+    try {
+      await clearUser();
 
-  function navigateToAnalysis() {
-  onClose();
-  router.push('/(private)/analise');
-}
+      onClose();
+      router.replace('/(auth)/cadastro');
+    } catch (error) {
+      console.error(
+        'Erro ao sair da conta:',
+        error,
+      );
+    }
+  }
 
   return (
     <Modal
@@ -130,31 +144,32 @@ export function SideMenu({
             </Pressable>
           </View>
 
-         <View style={styles.navigation}>
-          <MenuItem
-            icon="home-outline"
-            label="Início"
-            onPress={navigateToDashboard}
-          />
+          <View style={styles.navigation}>
+            <MenuItem
+              icon="home-outline"
+              label="Início"
+              onPress={navigateToDashboard}
+            />
 
-          <MenuItem
-            icon="receipt-outline"
-            label="Extrato"
-            onPress={navigateToStatement}
-          />
+            <MenuItem
+              icon="receipt-outline"
+              label="Extrato"
+              onPress={navigateToStatement}
+            />
 
-          <MenuItem
-            icon="stats-chart-outline"
-            label="Análise financeira"
-            onPress={navigateToAnalysis}
-          />
+            <MenuItem
+              icon="stats-chart-outline"
+              label="Análise financeira"
+              onPress={navigateToAnalysis}
+            />
 
-          <MenuItem
-            icon="add-circle-outline"
-            label="Nova transação"
-            onPress={navigateToNewTransaction}
-          />
-        </View>
+            <MenuItem
+              icon="add-circle-outline"
+              label="Nova transação"
+              onPress={navigateToNewTransaction}
+            />
+          </View>
+
           <View style={styles.footer}>
             <MenuItem
               icon="log-out-outline"

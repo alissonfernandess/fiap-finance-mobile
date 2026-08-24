@@ -13,41 +13,26 @@ import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { SideMenu } from '@/components/navigation/SideMenu';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
 import { useTransactions } from '@/contexts/TransactionContext';
+import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/theme';
+import { calculateFinancialSummary } from '@/utils/calculateFinancialSummary';
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { transactions } = useTransactions();
+  const { userName } = useUser();
 
   const [isMenuVisible, setIsMenuVisible] =
     useState(false);
 
   const recentTransactions = transactions.slice(0, 3);
 
-  const totalIncome = transactions
-    .filter(
-      (transaction) =>
-        transaction.operation === 'income',
-    )
-    .reduce(
-      (total, transaction) =>
-        total + transaction.value,
-      0,
-    );
-
-  const totalExpense = transactions
-    .filter(
-      (transaction) =>
-        transaction.operation === 'expense',
-    )
-    .reduce(
-      (total, transaction) =>
-        total + transaction.value,
-      0,
-    );
-
-  const balance = totalIncome - totalExpense;
-
+  const {
+  totalIncome,
+  totalExpense,
+  balance,
+  
+} = calculateFinancialSummary(transactions);
   function handleOpenMenu() {
     setIsMenuVisible(true);
   }
@@ -90,7 +75,7 @@ export default function DashboardScreen() {
         </View>
 
         <BalanceCard
-          userName="Felipe"
+          userName={userName || 'Usuário'}
           balance={balance}
           totalIncome={totalIncome}
           totalExpense={totalExpense}
