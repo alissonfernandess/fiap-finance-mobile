@@ -1,58 +1,56 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  updateDoc,
+} from 'firebase/firestore';
+
 import {
   createContext,
   useContext,
   useEffect,
   useMemo,
-  useReducer,
   useState,
   type PropsWithChildren,
 } from 'react';
 
-import { transactions as initialTransactions } from '@/mocks/transactions';
+import {
+  firebaseAuth,
+  firestore,
+} from '@/services/firebase';
+
 import type { Transaction } from '@/types/transaction';
 
-const TRANSACTIONS_STORAGE_KEY =
-  '@fiap-finance-mobile:transactions';
-
-interface TransactionState {
-  transactions: Transaction[];
-}
-
-type TransactionAction =
-  | {
-      type: 'LOAD_TRANSACTIONS';
-      payload: Transaction[];
-    }
-  | {
-      type: 'ADD_TRANSACTION';
-      payload: Transaction;
-    }
-  | {
-      type: 'UPDATE_TRANSACTION';
-      payload: {
-        id: string;
-        data: Partial<Transaction>;
-      };
-    }
-  | {
-      type: 'DELETE_TRANSACTION';
-      payload: string;
-    };
+type TransactionUpdate =
+  Omit<
+    Partial<Transaction>,
+    'id' | 'receiptUrl'
+  > & {
+    receiptUrl?: string | null;
+  };
 
 interface TransactionContextValue {
   transactions: Transaction[];
+  isLoadingTransactions: boolean;
 
   addTransaction: (
     transaction: Omit<Transaction, 'id'>,
-  ) => void;
+  ) => Promise<void>;
 
   updateTransaction: (
     id: string,
-    data: Partial<Transaction>,
-  ) => void;
+    data: TransactionUpdate,
+  ) => Promise<void>;
 
-  deleteTransaction: (id: string) => void;
+  deleteTransaction: (
+    id: string,
+  ) => Promise<void>;
 }
 
 const TransactionContext =
@@ -60,153 +58,169 @@ const TransactionContext =
     undefined,
   );
 
-function transactionReducer(
-  state: TransactionState,
-  action: TransactionAction,
-): TransactionState {
-  switch (action.type) {
-    case 'LOAD_TRANSACTIONS':
-      return {
-        ...state,
-        transactions: action.payload,
-      };
-
-    case 'ADD_TRANSACTION':
-      return {
-        ...state,
-        transactions: [
-          action.payload,
-          ...state.transactions,
-        ],
-      };
-
-    case 'UPDATE_TRANSACTION':
-      return {
-        ...state,
-        transactions: state.transactions.map(
-          (transaction) =>
-            transaction.id === action.payload.id
-              ? {
-                  ...transaction,
-                  ...action.payload.data,
-                }
-              : transaction,
-        ),
-      };
-
-    case 'DELETE_TRANSACTION':
-      return {
-        ...state,
-        transactions: state.transactions.filter(
-          (transaction) =>
-            transaction.id !== action.payload,
-        ),
-      };
-
-    default:
-      return state;
-  }
+function getTransactionsCollection(
+  userId: string,
+) {
+  return collection(
+    firestore,
+    'users',
+    userId,
+    'transactions',
+  );
 }
 
 export function TransactionProvider({
   children,
 }: PropsWithChildren) {
-  const [state, dispatch] = useReducer(
-    transactionReducer,
-    {
-      transactions: initialTransactions,
-    },
-  );
+  const [transactions, setTransactions] =
+    useState<Transaction[]>([]);
 
-  const [isStorageLoaded, setIsStorageLoaded] =
-    useState(false);
+  const [
+    isLoadingTransactions,
+    setIsLoadingTransactions,
+  ] = useState(true);
 
   useEffect(() => {
-    async function loadTransactions() {
-      try {
-        const storedTransactions =
-          await AsyncStorage.getItem(
-            TRANSACTIONS_STORAGE_KEY,
-          );
+    let unsubscribeTransactions:
+      | (() => void)
+      | undefined;
 
-        if (storedTransactions) {
-          const parsedTransactions =
-            JSON.parse(
-              storedTransactions,
-            ) as Transaction[];
+    const unsubscribeAuth =
+      firebaseAuth.onAuthStateChanged((user) => {
+        unsubscribeTransactions?.();
 
-          dispatch({
-            type: 'LOAD_TRANSACTIONS',
-            payload: parsedTransactions,
-          });
+        if (!user) {
+          setTransactions([]);
+          setIsLoadingTransactions(false);
+          return;
         }
-      } catch (error) {
-        console.error(
-          'Erro ao carregar transações:',
-          error,
-        );
-      } finally {
-        setIsStorageLoaded(true);
-      }
-    }
 
-    loadTransactions();
+        setIsLoadingTransactions(true);
+
+        const transactionsQuery = query(
+          getTransactionsCollection(user.uid),
+          orderBy('createdAt', 'desc'),
+        );
+
+        unsubscribeTransactions = onSnapshot(
+          transactionsQuery,
+          (snapshot) => {
+            const loadedTransactions =
+              snapshot.docs.map(
+                (transactionDocument) => ({
+                  id: transactionDocument.id,
+                  ...transactionDocument.data(),
+                }),
+              ) as Transaction[];
+
+            setTransactions(loadedTransactions);
+            setIsLoadingTransactions(false);
+          },
+          (error) => {
+            console.error(
+              'Erro ao carregar transações:',
+              error,
+            );
+
+            setTransactions([]);
+            setIsLoadingTransactions(false);
+          },
+        );
+      });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeTransactions?.();
+    };
   }, []);
-
-  useEffect(() => {
-    if (!isStorageLoaded) {
-      return;
-    }
-
-    async function saveTransactions() {
-      try {
-        await AsyncStorage.setItem(
-          TRANSACTIONS_STORAGE_KEY,
-          JSON.stringify(state.transactions),
-        );
-      } catch (error) {
-        console.error(
-          'Erro ao salvar transações:',
-          error,
-        );
-      }
-    }
-
-    saveTransactions();
-  }, [state.transactions, isStorageLoaded]);
 
   const value = useMemo<TransactionContextValue>(
     () => ({
-      transactions: state.transactions,
+      transactions,
+      isLoadingTransactions,
 
-      addTransaction(transaction) {
-        dispatch({
-          type: 'ADD_TRANSACTION',
-          payload: {
+      async addTransaction(transaction) {
+        const currentUser =
+          firebaseAuth.currentUser;
+
+        if (!currentUser) {
+          throw new Error(
+            'Nenhum usuário autenticado.',
+          );
+        }
+
+        await addDoc(
+          getTransactionsCollection(
+            currentUser.uid,
+          ),
+          {
             ...transaction,
-            id: `${Date.now()}-${Math.random()}`,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           },
-        });
+        );
       },
 
-      updateTransaction(id, data) {
-        dispatch({
-          type: 'UPDATE_TRANSACTION',
-          payload: {
-            id,
-            data,
-          },
-        });
+      async updateTransaction(id, data) {
+        const currentUser =
+          firebaseAuth.currentUser;
+
+        if (!currentUser) {
+          throw new Error(
+            'Nenhum usuário autenticado.',
+          );
+        }
+
+        const transactionReference = doc(
+          firestore,
+          'users',
+          currentUser.uid,
+          'transactions',
+          id,
+        );
+
+        const firestoreData: Record<
+          string,
+          unknown
+        > = {
+          ...data,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (data.receiptUrl === null) {
+          firestoreData.receiptUrl =
+            deleteField();
+        }
+
+        await updateDoc(
+          transactionReference,
+          firestoreData,
+        );
+  
       },
 
-      deleteTransaction(id) {
-        dispatch({
-          type: 'DELETE_TRANSACTION',
-          payload: id,
-        });
+      async deleteTransaction(id) {
+        const currentUser =
+          firebaseAuth.currentUser;
+
+        if (!currentUser) {
+          throw new Error(
+            'Nenhum usuário autenticado.',
+          );
+        }
+
+        const transactionReference = doc(
+          firestore,
+          'users',
+          currentUser.uid,
+          'transactions',
+          id,
+        );
+
+        await deleteDoc(transactionReference);
       },
     }),
-    [state.transactions],
+    [transactions, isLoadingTransactions],
   );
 
   return (

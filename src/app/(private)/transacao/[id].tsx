@@ -1,25 +1,32 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
-    useLocalSearchParams,
-    useRouter,
+  useLocalSearchParams,
+  useRouter,
 } from 'expo-router';
 import {
-    Alert,
-    Platform,
-    Pressable,
-    StyleSheet,
-    View
+  Alert,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
 } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
 import { Button } from '@/components/common/Button';
 import { Screen } from '@/components/common/Screen';
-import { TransactionForm } from '@/components/forms/TransactionForm';
+import {
+  TransactionForm,
+  type ReceiptFile,
+} from '@/components/forms/TransactionForm';
 import { useTransactions } from '@/contexts/TransactionContext';
 import type {
-    TransactionCategory,
-    TransactionFormData,
+  TransactionCategory,
+  TransactionFormData,
 } from '@/schemas/transactionSchema';
+import {
+  deleteReceipt,
+  uploadReceipt,
+} from '@/services/receiptStorage';
 import { colors } from '@/theme';
 
 function convertDateToInput(date: string) {
@@ -35,6 +42,7 @@ export default function EditarTransacaoScreen() {
 
   const {
     transactions,
+    isLoadingTransactions,
     updateTransaction,
     deleteTransaction,
   } = useTransactions();
@@ -42,6 +50,19 @@ export default function EditarTransacaoScreen() {
   const transaction = transactions.find(
     (item) => item.id === id,
   );
+
+  if (isLoadingTransactions) {
+    return (
+      <Screen style={styles.notFound}>
+        <AppText
+          variant="headline"
+          align="center"
+        >
+          Carregando transação...
+        </AppText>
+      </Screen>
+    );
+  }
 
   if (!transaction) {
     return (
@@ -56,7 +77,9 @@ export default function EditarTransacaoScreen() {
         <Button
           title="Voltar ao extrato"
           onPress={() => {
-            router.replace('/(private)/extrato');
+            router.replace(
+              '/(private)/extrato',
+            );
           }}
           style={styles.backButton}
         />
@@ -65,9 +88,13 @@ export default function EditarTransacaoScreen() {
   }
 
   const transactionId = transaction.id;
+  const currentReceiptUrl =
+    transaction.receiptUrl;
 
   async function handleSubmit(
     data: TransactionFormData,
+    receiptFile?: ReceiptFile,
+    removeExistingReceipt = false,
   ) {
     const numericValue = Number(
       data.amount
@@ -80,60 +107,149 @@ export default function EditarTransacaoScreen() {
       .reverse()
       .join('/');
 
-    updateTransaction(transactionId, {
-      description: data.description,
-      value: numericValue,
-      operation: data.operation,
-      category: data.category,
-      date: formattedDate,
-      type:
-        data.operation === 'income'
-          ? 'deposito'
-          : 'boleto',
-    });
+    let uploadedReceiptUrl:
+      | string
+      | undefined;
 
-    Alert.alert(
-      'Transação atualizada',
-      'As alterações foram salvas.',
-    );
+    try {
+      if (receiptFile) {
+        uploadedReceiptUrl =
+          await uploadReceipt(receiptFile);
+      }
 
-    router.replace('/(private)/extrato');
+      const receiptUpdate: {
+        receiptUrl?: string | null;
+      } = {};
+
+      if (uploadedReceiptUrl) {
+        receiptUpdate.receiptUrl =
+          uploadedReceiptUrl;
+      } else if (removeExistingReceipt) {
+        receiptUpdate.receiptUrl = null;
+      }
+
+      await updateTransaction(transactionId, {
+        description: data.description.trim(),
+        value: numericValue,
+        operation: data.operation,
+        category: data.category,
+        date: formattedDate,
+        type:
+          data.operation === 'income'
+            ? 'deposito'
+            : 'boleto',
+        ...receiptUpdate,
+      });
+
+      if (
+        currentReceiptUrl &&
+        (uploadedReceiptUrl ||
+          removeExistingReceipt)
+      ) {
+        try {
+          await deleteReceipt(
+           currentReceiptUrl,
+          );
+        } catch (cleanupError) {
+          console.error(
+            'Erro ao remover comprovante antigo:',
+            cleanupError,
+          );
+        }
+      }
+
+      Alert.alert(
+        'Transação atualizada',
+        'As alterações foram salvas.',
+      );
+
+      router.replace('/(private)/extrato');
+    } catch (error) {
+      console.error(
+        'Erro ao atualizar transação:',
+        error,
+      );
+
+      if (uploadedReceiptUrl) {
+        try {
+          await deleteReceipt(
+            uploadedReceiptUrl,
+          );
+        } catch (cleanupError) {
+          console.error(
+            'Erro ao remover novo comprovante:',
+            cleanupError,
+          );
+        }
+      }
+
+      Alert.alert(
+        'Não foi possível atualizar',
+        'Verifique sua conexão e tente novamente.',
+      );
+    }
   }
 
-  function confirmDelete() {
-  deleteTransaction(transactionId);
-  router.replace('/(private)/extrato');
-}
+  async function confirmDelete() {
+    try {
+      await deleteTransaction(transactionId);
 
-function handleDelete() {
-  if (Platform.OS === 'web') {
-    const confirmed = window.confirm(
-      'Deseja realmente excluir esta transação?',
-    );
+      if (currentReceiptUrl) {
+        try {
+          await deleteReceipt(
+            currentReceiptUrl,
+          );
+        } catch (storageError) {
+          console.error(
+            'Erro ao excluir comprovante:',
+            storageError,
+          );
+        }
+      }
 
-    if (confirmed) {
-      confirmDelete();
+      router.replace('/(private)/extrato');
+    } catch (error) {
+      console.error(
+        'Erro ao excluir transação:',
+        error,
+      );
+
+      Alert.alert(
+        'Não foi possível excluir',
+        'Verifique sua conexão e tente novamente.',
+      );
+    }
+  }
+
+  function handleDelete() {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Deseja realmente excluir esta transação?',
+      );
+
+      if (confirmed) {
+        confirmDelete();
+      }
+
+      return;
     }
 
-    return;
+    Alert.alert(
+      'Excluir transação',
+      'Essa ação não poderá ser desfeita.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: confirmDelete,
+        },
+      ],
+    );
   }
-
-  Alert.alert(
-    'Excluir transação',
-    'Essa ação não poderá ser desfeita.',
-    [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Excluir',
-        style: 'destructive',
-        onPress: confirmDelete,
-      },
-    ],
-  );
-}
 
   return (
     <Screen scrollable style={styles.screen}>
@@ -164,6 +280,9 @@ function handleDelete() {
 
       <TransactionForm
         submitLabel="Salvar alterações"
+        initialReceiptUrl={
+          transaction.receiptUrl
+        }
         initialValues={{
           description: transaction.description,
           amount: transaction.value
@@ -173,7 +292,9 @@ function handleDelete() {
           category:
             (transaction.category as TransactionCategory) ??
             'Outros',
-          date: convertDateToInput(transaction.date),
+          date: convertDateToInput(
+            transaction.date,
+          ),
         }}
         onSubmit={handleSubmit}
       />

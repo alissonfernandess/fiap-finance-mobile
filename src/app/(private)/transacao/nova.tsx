@@ -9,16 +9,26 @@ import {
 
 import { AppText } from '@/components/common/AppText';
 import { Screen } from '@/components/common/Screen';
-import { TransactionForm } from '@/components/forms/TransactionForm';
+import {
+  TransactionForm,
+  type ReceiptFile,
+} from '@/components/forms/TransactionForm';
 import { useTransactions } from '@/contexts/TransactionContext';
 import type { TransactionFormData } from '@/schemas/transactionSchema';
+import {
+  deleteReceipt,
+  uploadReceipt,
+} from '@/services/receiptStorage';
 import { colors } from '@/theme';
 
 export default function NovaTransacaoScreen() {
   const router = useRouter();
   const { addTransaction } = useTransactions();
 
-  async function handleSubmit(data: TransactionFormData) {
+ async function handleSubmit(
+  data: TransactionFormData,
+  receiptFile?: ReceiptFile,
+) {
   const numericValue = Number(
     data.amount
       .replace(/\./g, '')
@@ -30,8 +40,18 @@ export default function NovaTransacaoScreen() {
     .reverse()
     .join('/');
 
-  addTransaction({
-    description: data.description,
+  let uploadedReceiptUrl:
+    | string
+    | undefined;
+
+  try {
+    if (receiptFile) {
+      uploadedReceiptUrl =
+        await uploadReceipt(receiptFile);
+    }
+
+   await addTransaction({
+    description: data.description.trim(),
     value: numericValue,
     operation: data.operation,
     category: data.category,
@@ -40,14 +60,46 @@ export default function NovaTransacaoScreen() {
       data.operation === 'income'
         ? 'deposito'
         : 'boleto',
+    ...(uploadedReceiptUrl
+      ? {
+          receiptUrl:
+            uploadedReceiptUrl,
+        }
+      : {}),
   });
 
-  Alert.alert(
-    'Transação adicionada',
-    'A transação foi cadastrada com sucesso.',
-  );
+    Alert.alert(
+      'Transação adicionada',
+      receiptFile
+        ? 'A transação e o comprovante foram salvos.'
+        : 'A transação foi cadastrada com sucesso.',
+    );
 
-  router.replace('/(private)/extrato');
+    router.replace('/(private)/extrato');
+  } catch (error) {
+    console.error(
+      'Erro ao adicionar transação:',
+      error,
+    );
+
+    if (uploadedReceiptUrl) {
+      try {
+        await deleteReceipt(
+          uploadedReceiptUrl,
+        );
+      } catch (cleanupError) {
+        console.error(
+          'Erro ao remover comprovante órfão:',
+          cleanupError,
+        );
+      }
+    }
+
+    Alert.alert(
+      'Não foi possível adicionar',
+      'Verifique sua conexão e tente novamente.',
+    );
+  }
 }
 
   return (

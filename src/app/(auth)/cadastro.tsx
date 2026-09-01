@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { FirebaseError } from 'firebase/app';
 import { useState } from 'react';
 import {
   Alert,
@@ -14,27 +15,69 @@ import { Screen } from '@/components/common/Screen';
 import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/theme';
 
+function getRegisterErrorMessage(error: unknown) {
+  if (!(error instanceof FirebaseError)) {
+    return 'Não foi possível criar sua conta.';
+  }
+
+  switch (error.code) {
+    case 'auth/email-already-in-use':
+      return 'Este e-mail já está cadastrado.';
+
+    case 'auth/invalid-email':
+      return 'Informe um e-mail válido.';
+
+    case 'auth/weak-password':
+      return 'A senha deve ter pelo menos 6 caracteres.';
+
+    case 'auth/operation-not-allowed':
+      return 'Ative o login por e-mail e senha no Firebase.';
+
+    case 'auth/network-request-failed':
+      return 'Verifique sua conexão com a internet.';
+
+    default:
+      return 'Não foi possível criar sua conta.';
+  }
+}
+
 export default function CadastroScreen() {
   const router = useRouter();
-  const { saveUserName } = useUser();
+  const { registerUser } = useUser();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] =
+    useState('');
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const isFormInvalid =
+    !name.trim() ||
+    !phone.trim() ||
+    !email.trim() ||
+    password.length < 6;
 
   async function handleContinue() {
     const formattedName = name.trim();
 
-    if (!formattedName || !phone.trim()) {
+    if (isFormInvalid) {
       return;
     }
 
     try {
       setIsSaving(true);
 
-      await saveUserName(formattedName);
+    await registerUser(
+      formattedName,
+      phone,
+      email,
+      password,
+    );
 
-      router.push({
+      router.replace({
         pathname: '/boas-vindas',
         params: {
           name: formattedName,
@@ -48,11 +91,15 @@ export default function CadastroScreen() {
 
       Alert.alert(
         'Não foi possível continuar',
-        'Tente cadastrar sua conta novamente.',
+        getRegisterErrorMessage(error),
       );
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function handleOpenLogin() {
+    router.replace('/(auth)/login');
   }
 
   return (
@@ -64,6 +111,7 @@ export default function CadastroScreen() {
       />
 
       <Screen
+        scrollable
         backgroundColor="transparent"
         style={styles.screen}
       >
@@ -94,19 +142,46 @@ export default function CadastroScreen() {
             containerStyle={styles.input}
           />
 
+          <Input
+            label="E-mail"
+            placeholder="nome@exemplo.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            containerStyle={styles.input}
+          />
+
+          <Input
+            label="Senha"
+            placeholder="Mínimo de 6 caracteres"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            containerStyle={styles.input}
+          />
+
           <Button
             title={
               isSaving
-                ? 'Salvando...'
-                : 'Continuar'
+                ? 'Criando conta...'
+                : 'Criar conta'
             }
             onPress={handleContinue}
             disabled={
-              !name.trim() ||
-              !phone.trim() ||
-              isSaving
+              isFormInvalid || isSaving
             }
             style={styles.button}
+          />
+
+          <Button
+            title="Já tenho uma conta"
+            onPress={handleOpenLogin}
+            disabled={isSaving}
+            style={styles.loginButton}
           />
         </View>
       </Screen>
@@ -122,10 +197,10 @@ const styles = StyleSheet.create({
   },
 
   screen: {
-    justifyContent: 'center',
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
+    paddingVertical: 32,
   },
 
   card: {
@@ -146,5 +221,9 @@ const styles = StyleSheet.create({
 
   button: {
     marginTop: 24,
+  },
+
+  loginButton: {
+    marginTop: 12,
   },
 });

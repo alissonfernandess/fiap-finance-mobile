@@ -13,10 +13,10 @@ interface OperationSelectorProps {
   onChange: (value: TransactionOperation) => void;
 }
 
-const operations: Array<{
+const operations: {
   label: string;
   value: TransactionOperation;
-}> = [
+}[] = [
   {
     label: 'Receita',
     value: 'income',

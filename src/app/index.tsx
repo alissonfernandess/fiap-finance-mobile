@@ -15,5 +15,5 @@ export default function Index() {
     );
   }
 
-  return <Redirect href="/(auth)/cadastro" />;
+ return <Redirect href="/(auth)/login" />;
 }

@@ -1,49 +1,73 @@
 # FIAP Finance Mobile
 
-Aplicativo mobile de gerenciamento financeiro desenvolvido como parte do Tech Challenge da Pós-Tech FIAP.
+Aplicativo de gerenciamento financeiro desenvolvido em React Native como parte do Tech Challenge da Pós-Tech FIAP.
 
-O projeto permite cadastrar, visualizar, pesquisar, editar e excluir transações financeiras. Também apresenta um resumo financeiro com saldo, receitas, despesas e análise gráfica por período.
+O sistema permite autenticar usuários, gerenciar receitas e despesas, consultar análises financeiras e armazenar transações e comprovantes na nuvem por meio do Firebase.
 
 ## Funcionalidades
 
-### Usuário e sessão
+### Autenticação e usuário
 
-- Cadastro com nome completo e telefone
-- Persistência do nome do usuário
-- Entrada automática quando existe uma sessão local
-- Logout com remoção do usuário salvo
+- Cadastro com nome, telefone, e-mail e senha
+- Login com e-mail e senha
+- Autenticação pelo Firebase Authentication
+- Persistência da sessão
+- Logout
 - Proteção das rotas privadas
+- Perfil do usuário armazenado no Cloud Firestore
+- Separação dos dados por UID
 
 ### Dashboard
 
-- Saudação com o nome do usuário
+- Saudação personalizada
 - Saldo calculado automaticamente
 - Total de receitas
 - Total de despesas
-- Opção para ocultar e exibir valores
-- Exibição das três transações mais recentes
-- Estado vazio quando não existem transações
-- Acesso à edição das transações
+- Opção de ocultar e exibir valores
+- Três transações mais recentes
+- Estado vazio
+- Acesso ao extrato completo
+- Animações de entrada
+- Compatibilidade com a configuração de redução de movimento do dispositivo
 
 ### Transações
 
 - Cadastro de receitas e despesas
-- Descrição da transação
+- Descrição
 - Valor em reais
 - Categoria
 - Data
-- Validação de formulário
-- Edição de transações
+- Validação com Zod
+- Edição
 - Exclusão com confirmação
-- Persistência local dos dados
+- Persistência no Cloud Firestore
+- Atualização em tempo real
+- Isolamento das transações por usuário autenticado
+
+### Comprovantes
+
+- Anexo opcional
+- Suporte a JPEG, PNG e PDF
+- Limite de 5 MB por arquivo
+- Upload para o Firebase Storage
+- Visualização do comprovante
+- Troca do arquivo
+- Remoção do arquivo
+- Exclusão automática ao excluir a transação
+- Regras de segurança por UID
 
 ### Extrato
 
-- Listagem completa das transações
-- Pesquisa por descrição
-- Filtro por receitas
-- Filtro por despesas
-- Acesso aos detalhes de cada transação
+- Listagem das transações
+- Busca por descrição
+- Filtro por receitas e despesas
+- Filtro por categoria
+- Filtro por data inicial e final
+- Combinação de filtros
+- Limpeza dos filtros avançados
+- Scroll infinito em blocos de 10 transações
+- Acesso à edição de cada transação
+- Estados de carregamento e lista vazia
 
 ### Análise financeira
 
@@ -52,17 +76,17 @@ O projeto permite cadastrar, visualizar, pesquisar, editar e excluir transaçõe
 - Total de despesas
 - Gráfico de receitas e despesas
 - Agrupamento das transações por mês
-- Atualização automática após adicionar, editar ou excluir
+- Atualização automática após cadastrar, editar ou excluir
 
 ### Navegação
 
-O menu lateral possui acesso para:
+O menu lateral oferece acesso a:
 
 - Início
 - Extrato
 - Análise financeira
 - Nova transação
-- Sair
+- Logout
 
 ## Tecnologias
 
@@ -71,14 +95,32 @@ O menu lateral possui acesso para:
 - React Native
 - Expo Router
 - TypeScript
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Storage
+- AsyncStorage para persistência da autenticação no ambiente nativo
 - React Hook Form
 - Zod
-- AsyncStorage
+- Expo Document Picker
 - React Native SVG
+- React Native Animated
 - Ionicons
 - Jest
 - Jest Expo
 - React Native Testing Library
+
+## Arquitetura
+
+O projeto está organizado por responsabilidades:
+
+- `app`: rotas e telas do Expo Router
+- `components`: componentes reutilizáveis
+- `contexts`: estado global e comunicação com o Firebase
+- `schemas`: validações dos formulários
+- `services`: configuração e serviços do Firebase
+- `types`: tipos e interfaces
+- `utils`: cálculos e funções auxiliares
+- `theme`: cores e tipografia
 
 ## Estrutura do projeto
 
@@ -92,16 +134,17 @@ fiap-finance-mobile
 ├── src
 │   ├── app
 │   │   ├── (auth)
+│   │   │   ├── boas-vindas.tsx
 │   │   │   ├── cadastro.tsx
-│   │   │   └── boas-vindas.tsx
+│   │   │   └── login.tsx
 │   │   ├── (private)
 │   │   │   ├── transacao
 │   │   │   │   ├── [id].tsx
 │   │   │   │   └── nova.tsx
 │   │   │   ├── _layout.tsx
+│   │   │   ├── analise.tsx
 │   │   │   ├── dashboard.tsx
-│   │   │   ├── extrato.tsx
-│   │   │   └── analise.tsx
+│   │   │   └── extrato.tsx
 │   │   ├── _layout.tsx
 │   │   └── index.tsx
 │   ├── components
@@ -116,11 +159,16 @@ fiap-finance-mobile
 │   │   └── UserContext.tsx
 │   ├── schemas
 │   │   └── transactionSchema.ts
+│   ├── services
+│   │   ├── firebase.ts
+│   │   └── receiptStorage.ts
 │   ├── types
 │   │   └── transaction.ts
 │   ├── utils
 │   │   └── calculateFinancialSummary.ts
 │   └── theme
+├── .env.example
+├── .gitignore
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -130,10 +178,11 @@ fiap-finance-mobile
 
 | Rota | Descrição | Acesso |
 |---|---|---|
+| `/login` | Login do usuário | Público |
 | `/cadastro` | Cadastro do usuário | Público |
-| `/boas-vindas` | Boas-vindas após o cadastro | Público |
+| `/boas-vindas` | Boas-vindas após o cadastro | Autenticado |
 | `/dashboard` | Resumo financeiro | Privado |
-| `/extrato` | Listagem e filtros | Privado |
+| `/extrato` | Listagem, busca e filtros | Privado |
 | `/analise` | Indicadores e gráfico | Privado |
 | `/transacao/nova` | Cadastro de transação | Privado |
 | `/transacao/[id]` | Edição e exclusão | Privado |
@@ -142,11 +191,10 @@ fiap-finance-mobile
 
 ### Pré-requisitos
 
-Antes de iniciar, instale:
-
-- Node.js 18 ou superior
+- Node.js 20 LTS ou superior
 - npm
-- Expo Go ou um emulador Android/iOS
+- Expo Go, emulador Android/iOS ou navegador
+- Projeto configurado no Firebase
 
 ### 1. Clonar o repositório
 
@@ -163,22 +211,47 @@ cd fiap-finance-mobile
 ### 3. Instalar as dependências
 
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
 
-### 4. Iniciar o projeto
+### 4. Configurar as variáveis de ambiente
+
+Crie um arquivo `.env` na raiz do projeto com base no `.env.example`:
+
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+EXPO_PUBLIC_FIREBASE_APP_ID=
+```
+
+Os valores estão disponíveis em:
+
+```text
+Firebase Console
+→ Configurações do projeto
+→ Geral
+→ Seus aplicativos
+→ Configuração do SDK
+```
+
+O arquivo `.env` contém a configuração do ambiente e não deve ser enviado ao GitHub.
+
+### 5. Iniciar o projeto
 
 ```bash
 npm start
 ```
 
-Também é possível executar:
+Também é possível utilizar:
 
 ```bash
 npx expo start
 ```
 
-No Windows, caso o PowerShell apresente bloqueio do `npx`, utilize:
+No Windows:
 
 ```powershell
 npx.cmd expo start
@@ -202,16 +275,100 @@ npm run ios
 npm run web
 ```
 
-## Persistência local
+## Configuração do Firebase
 
-O projeto utiliza AsyncStorage para armazenar:
+### Authentication
 
-- Nome do usuário
-- Lista de transações
+No Firebase Console:
 
-Dessa forma, os dados permanecem disponíveis após atualizar, fechar ou reabrir o aplicativo.
+1. Abra `Authentication`.
+2. Entre em `Método de login`.
+3. Ative o provedor `E-mail/senha`.
 
-O logout remove o usuário salvo, mas as transações continuam armazenadas localmente.
+### Cloud Firestore
+
+Estrutura utilizada:
+
+```text
+users
+└── UID
+    ├── name
+    ├── phone
+    ├── email
+    ├── createdAt
+    ├── updatedAt
+    └── transactions
+        └── transactionId
+            ├── description
+            ├── value
+            ├── operation
+            ├── category
+            ├── date
+            ├── type
+            ├── receiptUrl
+            ├── createdAt
+            └── updatedAt
+```
+
+Regras do Firestore:
+
+```text
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, create, update, delete:
+        if request.auth != null
+        && request.auth.uid == userId;
+
+      match /transactions/{transactionId} {
+        allow read, create, update, delete:
+          if request.auth != null
+          && request.auth.uid == userId;
+      }
+    }
+  }
+}
+```
+
+### Firebase Storage
+
+O Firebase Storage exige que o projeto esteja no plano Blaze. O projeto acadêmico pode permanecer dentro das cotas gratuitas, dependendo da região e do uso.
+
+Estrutura utilizada:
+
+```text
+users
+└── UID
+    └── receipts
+        └── arquivo
+```
+
+Regras do Storage:
+
+```text
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{userId}/receipts/{fileName} {
+      allow read, delete:
+        if request.auth != null
+        && request.auth.uid == userId;
+
+      allow create, update:
+        if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf'
+        );
+    }
+  }
+}
+```
 
 ## Validação das transações
 
@@ -235,9 +392,17 @@ Categorias disponíveis:
 - Transferência
 - Outros
 
-## Testes automatizados
+## Segurança
 
-O projeto utiliza Jest com o preset `jest-expo`.
+- As rotas privadas exigem autenticação.
+- Cada documento é associado ao UID do usuário.
+- As regras do Firestore restringem o acesso aos dados do proprietário.
+- As regras do Storage restringem os comprovantes ao proprietário.
+- Somente imagens e PDFs de até 5 MB são aceitos.
+- O `.env` está protegido pelo `.gitignore`.
+- O `.env.example` não contém credenciais.
+
+## Testes automatizados
 
 Os testes atuais verificam:
 
@@ -266,13 +431,19 @@ Os testes atuais verificam:
 npm test
 ```
 
-### Executar em modo contínuo
+Execução sem paralelismo:
+
+```bash
+npm test -- --runInBand
+```
+
+Modo contínuo:
 
 ```bash
 npm run test:watch
 ```
 
-### Gerar relatório de cobertura
+Relatório de cobertura:
 
 ```bash
 npm run test:coverage
@@ -280,7 +451,11 @@ npm run test:coverage
 
 ## Verificação de qualidade
 
-### Verificar o TypeScript
+### TypeScript
+
+```bash
+npx tsc --noEmit
+```
 
 No Windows:
 
@@ -288,13 +463,7 @@ No Windows:
 npx.cmd tsc --noEmit
 ```
 
-Em outros sistemas:
-
-```bash
-npx tsc --noEmit
-```
-
-### Executar o lint
+### ESLint
 
 ```bash
 npm run lint
@@ -305,95 +474,86 @@ npm run lint
 ```bash
 npm run lint
 npx tsc --noEmit
-npm test
+npm test -- --runInBand
 ```
 
 No Windows:
 
 ```powershell
-npm run lint
+npm.cmd run lint
 npx.cmd tsc --noEmit
-npm test
+npm.cmd test -- --runInBand
 ```
 
-## Comandos utilizados no desenvolvimento
-
-### Instalar o AsyncStorage
+## Principais comandos utilizados
 
 ```powershell
 npx.cmd expo install @react-native-async-storage/async-storage
-```
-
-### Instalar o React Native SVG
-
-```powershell
 npx.cmd expo install react-native-svg
-```
-
-### Instalar as ferramentas de teste
-
-```powershell
-npx.cmd expo install jest-expo jest @types/jest "@testing-library/react-native" "--" --dev
-```
-
-### Verificar as versões dos testes
-
-```powershell
-npm ls jest jest-expo @testing-library/react-native
-```
-
-### Verificar erros do TypeScript
-
-```powershell
+npx.cmd expo install expo-document-picker -- --legacy-peer-deps
+npm.cmd install --save-dev @react-native/jest-preset@0.86.3 --legacy-peer-deps
 npx.cmd tsc --noEmit
+npm.cmd run lint
+npm.cmd test -- --runInBand
 ```
 
-## Arquitetura
+## Decisões técnicas
 
-O aplicativo utiliza uma arquitetura baseada em responsabilidades:
+### Context API
 
-- `app`: telas e rotas do Expo Router
-- `components`: componentes reutilizáveis
-- `contexts`: estado global e persistência
-- `schemas`: validações com Zod
-- `types`: tipos e interfaces
-- `utils`: funções auxiliares e regras reutilizáveis
-- `theme`: cores e tipografia
+O projeto utiliza Context API e Providers para centralizar autenticação e transações.
 
-### Contextos
-
-#### TransactionContext
+### UserContext
 
 Responsável por:
 
-- Carregar as transações
+- Observar o estado do Firebase Authentication
+- Cadastrar usuários
+- Realizar login
+- Atualizar o perfil
+- Manter o usuário autenticado
+- Realizar logout
+
+### TransactionContext
+
+Responsável por:
+
+- Carregar as transações do usuário autenticado
+- Escutar atualizações do Firestore em tempo real
 - Adicionar transações
 - Atualizar transações
 - Excluir transações
-- Salvar alterações no AsyncStorage
+- Impedir acesso sem autenticação
 
-#### UserContext
+### Receipt Storage
 
 Responsável por:
 
-- Carregar o usuário salvo
-- Salvar o nome
-- Controlar a sessão local
-- Remover o usuário no logout
+- Enviar comprovantes
+- Validar formato e tamanho
+- Gerar a URL de download
+- Remover arquivos substituídos
+- Remover arquivos de transações excluídas
 
-## Próximos passos
+## Acessibilidade
 
-- Ampliar os testes dos contextos e componentes
-- Adicionar máscara ao campo de telefone
-- Melhorar a máscara monetária
-- Adicionar estados de carregamento
-- Revisar acessibilidade
+- Labels em botões e controles interativos
+- Funções semânticas para botões e links
+- Estados selecionados nos filtros
+- Cores centralizadas no tema
+- Suporte à configuração de redução de movimento
+- Áreas de toque ampliadas em controles importantes
+
+## Melhorias futuras
+
+- Aplicar máscara automática ao telefone
+- Aprimorar a máscara monetária
+- Ampliar a cobertura dos testes de componentes e contextos
+- Gerar builds nativas para Android e iOS
 - Adicionar capturas de tela ao README
-- Gerar uma build de avaliação
-- Revisar os requisitos finais da FIAP
 
 ## Autor
 
 **Felipe Yukio Saito**
 
-Projeto desenvolvido para a Pós-Tech FIAP.
+Projeto desenvolvido para o Tech Challenge da Pós-Tech FIAP.

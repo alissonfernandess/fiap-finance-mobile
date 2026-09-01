@@ -1,19 +1,49 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
-    createContext,
-    PropsWithChildren,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
+  doc,
+  serverTimestamp,
+  setDoc,
+} from 'firebase/firestore';
+
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+  updateProfile,
+  type User,
+} from 'firebase/auth';
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from 'react';
 
-const USER_STORAGE_KEY =
-  '@finance-mobile:user-name';
+import {
+  firebaseAuth,
+  firestore,
+} from '@/services/firebase';
 
 interface UserContextValue {
+  firebaseUser: User | null;
   userName: string;
   isUserLoaded: boolean;
+  isAuthenticated: boolean;
+
+  registerUser: (
+  name: string,
+  phone: string,
+  email: string,
+  password: string,
+) => Promise<void>;
+
+  loginUser: (
+    email: string,
+    password: string,
+  ) => Promise<void>;
+
   saveUserName: (name: string) => Promise<void>;
   clearUser: () => Promise<void>;
 }
@@ -23,61 +53,142 @@ const UserContext =
     undefined,
   );
 
+function getUserName(user: User | null) {
+  if (!user) {
+    return '';
+  }
+
+  if (user.displayName) {
+    return user.displayName;
+  }
+
+  if (user.email) {
+    return user.email.split('@')[0];
+  }
+
+  return 'Usuário';
+}
+
 export function UserProvider({
   children,
 }: PropsWithChildren) {
-  const [userName, setUserName] = useState('');
+  const [firebaseUser, setFirebaseUser] =
+    useState<User | null>(null);
+
+  const [userName, setUserName] =
+    useState('');
+
   const [isUserLoaded, setIsUserLoaded] =
     useState(false);
 
   useEffect(() => {
-    async function loadUser() {
-      try {
-        const storedName = await AsyncStorage.getItem(
-          USER_STORAGE_KEY,
-        );
-
-        if (storedName) {
-          setUserName(storedName);
-        }
-      } catch (error) {
+    const unsubscribe = onAuthStateChanged(
+      firebaseAuth,
+      (user) => {
+        setFirebaseUser(user);
+        setUserName(getUserName(user));
+        setIsUserLoaded(true);
+      },
+      (error) => {
         console.error(
-          'Erro ao carregar usuário:',
+          'Erro ao observar autenticação:',
           error,
         );
-      } finally {
-        setIsUserLoaded(true);
-      }
-    }
 
-    loadUser();
+        setFirebaseUser(null);
+        setUserName('');
+        setIsUserLoaded(true);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
   const value = useMemo<UserContextValue>(
     () => ({
+      firebaseUser,
       userName,
       isUserLoaded,
+      isAuthenticated: Boolean(firebaseUser),
+
+      
+      async registerUser(
+        name,
+        phone,
+        email,
+        password,
+      ) {
+        const formattedName = name.trim();
+        const formattedPhone = phone.trim();
+        const formattedEmail =
+          email.trim().toLowerCase();
+
+        const credential =
+          await createUserWithEmailAndPassword(
+            firebaseAuth,
+            formattedEmail,
+            password,
+          );
+
+        await updateProfile(credential.user, {
+          displayName: formattedName,
+        });
+
+        await setDoc(
+          doc(
+            firestore,
+            'users',
+            credential.user.uid,
+          ),
+          {
+            name: formattedName,
+            phone: formattedPhone,
+            email: formattedEmail,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+        );
+
+        setFirebaseUser(credential.user);
+        setUserName(formattedName);
+      },
+
+      async loginUser(email, password) {
+        await signInWithEmailAndPassword(
+          firebaseAuth,
+          email.trim().toLowerCase(),
+          password,
+        );
+      },
 
       async saveUserName(name) {
+        const currentUser =
+          firebaseAuth.currentUser;
+
+        if (!currentUser) {
+          throw new Error(
+            'Nenhum usuário autenticado.',
+          );
+        }
+
         const formattedName = name.trim();
 
-        await AsyncStorage.setItem(
-          USER_STORAGE_KEY,
-          formattedName,
-        );
+        await updateProfile(currentUser, {
+          displayName: formattedName,
+        });
 
         setUserName(formattedName);
       },
 
       async clearUser() {
-        await AsyncStorage.removeItem(
-          USER_STORAGE_KEY,
-        );
-
-        setUserName('');
+        await signOut(firebaseAuth);
       },
     }),
-    [userName, isUserLoaded],
+    [
+      firebaseUser,
+      userName,
+      isUserLoaded,
+    ],
   );
 
   return (

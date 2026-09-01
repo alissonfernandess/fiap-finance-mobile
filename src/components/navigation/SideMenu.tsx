@@ -87,7 +87,7 @@ export function SideMenu({
       await clearUser();
 
       onClose();
-      router.replace('/(auth)/cadastro');
+      router.replace('/(auth)/login');
     } catch (error) {
       console.error(
         'Erro ao sair da conta:',

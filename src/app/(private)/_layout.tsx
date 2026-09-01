@@ -3,15 +3,18 @@ import { Redirect, Stack } from 'expo-router';
 import { useUser } from '@/contexts/UserContext';
 
 export default function PrivateLayout() {
-  const { userName, isUserLoaded } = useUser();
+  const {
+  isAuthenticated,
+  isUserLoaded,
+} = useUser();
 
   if (!isUserLoaded) {
     return null;
   }
 
-  if (!userName) {
+ if (!isAuthenticated) {
     return (
-      <Redirect href="/(auth)/cadastro" />
+      <Redirect href="/(auth)/login" />
     );
   }
 

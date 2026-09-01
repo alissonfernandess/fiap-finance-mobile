@@ -1,7 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
 import {
+  useEffect,
+  useState,
+} from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   Pressable,
   StyleSheet,
   View,
@@ -25,14 +31,76 @@ export default function DashboardScreen() {
   const [isMenuVisible, setIsMenuVisible] =
     useState(false);
 
-  const recentTransactions = transactions.slice(0, 3);
+  const [balanceAnimation] = useState(
+    () => new Animated.Value(0),
+  );
+
+  const [statementAnimation] = useState(
+    () => new Animated.Value(0),
+  );
+
+  const recentTransactions =
+    transactions.slice(0, 3);
 
   const {
-  totalIncome,
-  totalExpense,
-  balance,
-  
-} = calculateFinancialSummary(transactions);
+    totalIncome,
+    totalExpense,
+    balance,
+  } = calculateFinancialSummary(
+    transactions,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function startAnimations() {
+      const reduceMotionEnabled =
+        await AccessibilityInfo.isReduceMotionEnabled();
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (reduceMotionEnabled) {
+        balanceAnimation.setValue(1);
+        statementAnimation.setValue(1);
+        return;
+      }
+
+      Animated.stagger(140, [
+        Animated.timing(balanceAnimation, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.out(
+            Easing.cubic,
+          ),
+          useNativeDriver: true,
+        }),
+
+        Animated.timing(
+          statementAnimation,
+          {
+            toValue: 1,
+            duration: 450,
+            easing: Easing.out(
+              Easing.cubic,
+            ),
+            useNativeDriver: true,
+          },
+        ),
+      ]).start();
+    }
+
+    startAnimations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    balanceAnimation,
+    statementAnimation,
+  ]);
+
   function handleOpenMenu() {
     setIsMenuVisible(true);
   }
@@ -45,16 +113,48 @@ export default function DashboardScreen() {
     transactionId: string,
   ) {
     router.push({
-      pathname: '/(private)/transacao/[id]',
+      pathname:
+        '/(private)/transacao/[id]',
       params: {
         id: transactionId,
       },
     });
   }
 
+  const balanceAnimatedStyle = {
+    opacity: balanceAnimation,
+
+    transform: [
+      {
+        translateY:
+          balanceAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [24, 0],
+          }),
+      },
+    ],
+  };
+
+  const statementAnimatedStyle = {
+    opacity: statementAnimation,
+
+    transform: [
+      {
+        translateY:
+          statementAnimation.interpolate({
+            inputRange: [0, 1],
+            outputRange: [24, 0],
+          }),
+      },
+    ],
+  };
+
   return (
     <>
-      <Screen scrollable style={styles.screen}>
+      <Screen
+        scrollable
+        style={styles.screen}
+      >
         <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
@@ -74,67 +174,95 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
-        <BalanceCard
-          userName={userName || 'Usuário'}
-          balance={balance}
-          totalIncome={totalIncome}
-          totalExpense={totalExpense}
-        />
+        <Animated.View
+          style={balanceAnimatedStyle}
+        >
+          <BalanceCard
+            userName={
+              userName || 'Usuário'
+            }
+            balance={balance}
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+          />
+        </Animated.View>
 
-        <View style={styles.statementHeader}>
-          <AppText variant="headline">
-            Extrato
-          </AppText>
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ver extrato completo"
-            onPress={handleOpenStatement}
+        <Animated.View
+          style={statementAnimatedStyle}
+        >
+          <View
+            style={styles.statementHeader}
           >
-            <AppText color={colors.textSecondary}>
-              Ver todos
+            <AppText variant="headline">
+              Extrato
             </AppText>
-          </Pressable>
-        </View>
 
-        <View style={styles.transactionList}>
-          {recentTransactions.length > 0 ? (
-            recentTransactions.map((transaction) => (
-              <TransactionItem
-                key={transaction.id}
-                transaction={transaction}
-                onPress={() =>
-                  handleTransactionPress(
-                    transaction.id,
-                  )
-                }
-              />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons
-                name="receipt-outline"
-                size={32}
-                color={colors.textMuted}
-              />
-
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ver extrato completo"
+              onPress={handleOpenStatement}
+            >
               <AppText
-                color={colors.textSecondary}
-                align="center"
-                style={styles.emptyText}
+                color={
+                  colors.textSecondary
+                }
               >
-                Nenhuma transação cadastrada.
+                Ver todos
               </AppText>
-            </View>
-          )}
-        </View>
+            </Pressable>
+          </View>
+
+          <View
+            style={styles.transactionList}
+          >
+            {recentTransactions.length >
+            0 ? (
+              recentTransactions.map(
+                (transaction) => (
+                  <TransactionItem
+                    key={transaction.id}
+                    transaction={
+                      transaction
+                    }
+                    onPress={() => {
+                      handleTransactionPress(
+                        transaction.id,
+                      );
+                    }}
+                  />
+                ),
+              )
+            ) : (
+              <View
+                style={styles.emptyState}
+              >
+                <Ionicons
+                  name="receipt-outline"
+                  size={32}
+                  color={colors.textMuted}
+                />
+
+                <AppText
+                  color={
+                    colors.textSecondary
+                  }
+                  align="center"
+                  style={styles.emptyText}
+                >
+                  Nenhuma transação
+                  cadastrada.
+                </AppText>
+              </View>
+            )}
+          </View>
+        </Animated.View>
       </Screen>
 
       <SideMenu
         visible={isMenuVisible}
-        onClose={() =>
-          setIsMenuVisible(false)
-        }
+        onClose={() => {
+          setIsMenuVisible(false);
+        }}
       />
     </>
   );
