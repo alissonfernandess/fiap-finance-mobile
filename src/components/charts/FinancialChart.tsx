@@ -13,10 +13,11 @@ import Svg, {
 
 import { AppText } from '@/components/common/AppText';
 import { colors } from '@/theme';
-import type { Transaction } from '@/types/transaction';
+import type { CategorySummary, MonthlySummary } from '@/domain/services/FinancialCalculator';
 
 interface FinancialChartProps {
-  transactions: Transaction[];
+  type: 'monthly' | 'category';
+  data: MonthlySummary[] | CategorySummary[];
 }
 
 interface MonthlyData {
@@ -26,72 +27,40 @@ interface MonthlyData {
   expense: number;
 }
 
-function parseTransactionDate(value: string) {
-  const [day, month, year] = value
-    .split('/')
-    .map(Number);
-
-  return new Date(year, month - 1, day);
+function formatCurrency(valueInCents: number) {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  }).format(valueInCents / 100);
 }
 
-function getMonthlyData(
-  transactions: Transaction[],
-): MonthlyData[] {
-  const monthlyMap = new Map<string, MonthlyData>();
-
-  transactions.forEach((transaction) => {
-    const date = parseTransactionDate(
-      transaction.date,
-    );
-
-    if (Number.isNaN(date.getTime())) {
-      return;
-    }
-
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const key = `${year}-${String(month + 1).padStart(
-      2,
-      '0',
-    )}`;
-
-    const existingMonth = monthlyMap.get(key) ?? {
-      key,
-      label: new Intl.DateTimeFormat('pt-BR', {
-        month: 'short',
-      })
-        .format(date)
-        .replace('.', ''),
-      income: 0,
-      expense: 0,
-    };
-
-    if (transaction.operation === 'income') {
-      existingMonth.income += transaction.value;
-    } else {
-      existingMonth.expense += transaction.value;
-    }
-
-    monthlyMap.set(key, existingMonth);
-  });
-
-  return Array.from(monthlyMap.values())
-    .sort((first, second) =>
-      first.key.localeCompare(second.key),
-    )
-    .slice(-6);
+function getMonthlyData(data: MonthlySummary[]): MonthlyData[] {
+  return data.map((item) => ({
+    key: item.month,
+    label: new Date(`${item.month}-01`).toLocaleDateString('pt-BR', { month: 'short' }),
+    income: item.income,
+    expense: item.expense,
+  }));
 }
 
-export function FinancialChart({
-  transactions,
-}: FinancialChartProps) {
-  const { width: windowWidth } =
-    useWindowDimensions();
+function getCategoryData(data: CategorySummary[]): MonthlyData[] {
+  return data.map((item, index) => ({
+    key: item.category,
+    label: item.category,
+    income: item.operation === 'income' ? item.total : 0,
+    expense: item.operation === 'expense' ? item.total : 0,
+  }));
+}
 
-  const monthlyData = useMemo(
-    () => getMonthlyData(transactions),
-    [transactions],
-  );
+export function FinancialChart({ type, data }: FinancialChartProps) {
+  const { width: windowWidth } = useWindowDimensions();
+
+  const monthlyData = useMemo(() => {
+    if (type === 'monthly') {
+      return getMonthlyData(data as MonthlySummary[]);
+    }
+    return getCategoryData(data as CategorySummary[]);
+  }, [type, data]);
 
   const chartWidth = Math.min(
     Math.max(windowWidth - 72, 280),
@@ -103,16 +72,11 @@ export function FinancialChart({
   const topPadding = 20;
   const bottomPadding = 38;
 
-  const drawableWidth =
-    chartWidth - horizontalPadding * 2;
-
-  const drawableHeight =
-    chartHeight - topPadding - bottomPadding;
+  const drawableWidth = chartWidth - horizontalPadding * 2;
+  const drawableHeight = chartHeight - topPadding - bottomPadding;
 
   const maximumValue = Math.max(
-    ...monthlyData.map((item) =>
-      Math.max(item.income, item.expense),
-    ),
+    ...monthlyData.map((item) => Math.max(item.income, item.expense)),
     1,
   );
 
@@ -120,50 +84,28 @@ export function FinancialChart({
     if (monthlyData.length <= 1) {
       return chartWidth / 2;
     }
-
-    return (
-      horizontalPadding +
-      (index * drawableWidth) /
-        (monthlyData.length - 1)
-    );
+    return horizontalPadding + (index * drawableWidth) / (monthlyData.length - 1);
   }
 
   function getY(value: number) {
-    return (
-      topPadding +
-      drawableHeight -
-      (value / maximumValue) * drawableHeight
-    );
+    return topPadding + drawableHeight - (value / maximumValue) * drawableHeight;
   }
 
   const incomePoints = monthlyData
-    .map(
-      (item, index) =>
-        `${getX(index)},${getY(item.income)}`,
-    )
+    .map((item, index) => `${getX(index)},${getY(item.income)}`)
     .join(' ');
 
   const expensePoints = monthlyData
-    .map(
-      (item, index) =>
-        `${getX(index)},${getY(item.expense)}`,
-    )
+    .map((item, index) => `${getX(index)},${getY(item.expense)}`)
     .join(' ');
 
   if (monthlyData.length === 0) {
     return (
       <View style={styles.card}>
-        <AppText variant="headline">
-          Receitas x despesas
-        </AppText>
-
+        <AppText variant="headline">Receitas x despesas</AppText>
         <View style={styles.emptyState}>
-          <AppText
-            color={colors.textSecondary}
-            align="center"
-          >
-            Cadastre transações para visualizar o
-            gráfico.
+          <AppText color={colors.textSecondary} align="center">
+            Cadastre transações para visualizar o gráfico.
           </AppText>
         </View>
       </View>
@@ -173,60 +115,32 @@ export function FinancialChart({
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <AppText variant="headline">
-          Receitas x despesas
-        </AppText>
-
+        <AppText variant="headline">Receitas x despesas</AppText>
         <AppText color={colors.textSecondary}>
-          Últimos meses
+          {type === 'monthly' ? 'Últimos meses' : 'Por categoria'}
         </AppText>
       </View>
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendDot,
-              styles.incomeDot,
-            ]}
-          />
-
-          <AppText color={colors.textSecondary}>
-            Receitas
-          </AppText>
+          <View style={[styles.legendDot, styles.incomeDot]} />
+          <AppText color={colors.textSecondary}>Receitas</AppText>
         </View>
-
         <View style={styles.legendItem}>
-          <View
-            style={[
-              styles.legendDot,
-              styles.expenseDot,
-            ]}
-          />
-
-          <AppText color={colors.textSecondary}>
-            Despesas
-          </AppText>
+          <View style={[styles.legendDot, styles.expenseDot]} />
+          <AppText color={colors.textSecondary}>Despesas</AppText>
         </View>
       </View>
 
       <View style={styles.chartContainer}>
-        <Svg
-          width={chartWidth}
-          height={chartHeight}
-        >
+        <Svg width={chartWidth} height={chartHeight}>
           {[0, 0.5, 1].map((percentage) => {
-            const y =
-              topPadding +
-              drawableHeight * percentage;
-
+            const y = topPadding + drawableHeight * percentage;
             return (
               <Line
                 key={percentage}
                 x1={horizontalPadding}
-                x2={
-                  chartWidth - horizontalPadding
-                }
+                x2={chartWidth - horizontalPadding}
                 y1={y}
                 y2={y}
                 stroke={colors.surfaceLight}
@@ -245,7 +159,6 @@ export function FinancialChart({
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
-
               <Polyline
                 points={expensePoints}
                 fill="none"
@@ -302,42 +215,34 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.surface,
   },
-
   header: {
     gap: 4,
   },
-
   legend: {
     flexDirection: 'row',
     marginTop: 16,
     gap: 20,
   },
-
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
   },
-
   legendDot: {
     width: 9,
     height: 9,
     borderRadius: 5,
   },
-
   incomeDot: {
     backgroundColor: colors.income,
   },
-
   expenseDot: {
     backgroundColor: colors.expense,
   },
-
   chartContainer: {
     alignItems: 'center',
     marginTop: 8,
   },
-
   emptyState: {
     minHeight: 180,
     alignItems: 'center',

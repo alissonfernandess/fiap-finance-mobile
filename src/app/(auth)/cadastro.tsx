@@ -1,18 +1,13 @@
 import { useRouter } from 'expo-router';
 import { FirebaseError } from 'firebase/app';
 import { useState } from 'react';
-import {
-  Alert,
-  ImageBackground,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Alert, ImageBackground, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Screen } from '@/components/common/Screen';
-import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/presentation/hooks/useAuth';
 import { colors } from '@/theme';
 
 function getRegisterErrorMessage(error: unknown) {
@@ -23,19 +18,14 @@ function getRegisterErrorMessage(error: unknown) {
   switch (error.code) {
     case 'auth/email-already-in-use':
       return 'Este e-mail já está cadastrado.';
-
     case 'auth/invalid-email':
       return 'Informe um e-mail válido.';
-
     case 'auth/weak-password':
       return 'A senha deve ter pelo menos 6 caracteres.';
-
     case 'auth/operation-not-allowed':
       return 'Ative o login por e-mail e senha no Firebase.';
-
     case 'auth/network-request-failed':
       return 'Verifique sua conexão com a internet.';
-
     default:
       return 'Não foi possível criar sua conta.';
   }
@@ -43,58 +33,33 @@ function getRegisterErrorMessage(error: unknown) {
 
 export default function CadastroScreen() {
   const router = useRouter();
-  const { registerUser } = useUser();
+  const { register, isRegisterLoading } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] =
-    useState('');
+  const [password, setPassword] = useState('');
 
-  const [isSaving, setIsSaving] =
-    useState(false);
-
-  const isFormInvalid =
-    !name.trim() ||
-    !phone.trim() ||
-    !email.trim() ||
-    password.length < 6;
+  const isFormInvalid = !name.trim() || !phone.trim() || !email.trim() || password.length < 6;
 
   async function handleContinue() {
-    const formattedName = name.trim();
-
-    if (isFormInvalid) {
-      return;
-    }
+    if (isFormInvalid) return;
 
     try {
-      setIsSaving(true);
-
-    await registerUser(
-      formattedName,
-      phone,
-      email,
-      password,
-    );
+      await register({
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
       router.replace({
-        pathname: '/boas-vindas',
-        params: {
-          name: formattedName,
-        },
+        pathname: '/(auth)/boas-vindas',
+        params: { name: name.trim() },
       });
     } catch (error) {
-      console.error(
-        'Erro ao cadastrar usuário:',
-        error,
-      );
-
-      Alert.alert(
-        'Não foi possível continuar',
-        getRegisterErrorMessage(error),
-      );
-    } finally {
-      setIsSaving(false);
+      console.error('Erro ao cadastrar usuário:', error);
+      Alert.alert('Não foi possível continuar', getRegisterErrorMessage(error));
     }
   }
 
@@ -110,11 +75,7 @@ export default function CadastroScreen() {
         style={StyleSheet.absoluteFill}
       />
 
-      <Screen
-        scrollable
-        backgroundColor="transparent"
-        style={styles.screen}
-      >
+      <Screen scrollable backgroundColor="transparent" style={styles.screen}>
         <View style={styles.card}>
           <AppText
             variant="headline"
@@ -165,22 +126,16 @@ export default function CadastroScreen() {
           />
 
           <Button
-            title={
-              isSaving
-                ? 'Criando conta...'
-                : 'Criar conta'
-            }
+            title={isRegisterLoading ? 'Criando conta...' : 'Criar conta'}
             onPress={handleContinue}
-            disabled={
-              isFormInvalid || isSaving
-            }
+            disabled={isFormInvalid || isRegisterLoading}
             style={styles.button}
           />
 
           <Button
             title="Já tenho uma conta"
             onPress={handleOpenLogin}
-            disabled={isSaving}
+            disabled={isRegisterLoading}
             style={styles.loginButton}
           />
         </View>
@@ -195,14 +150,12 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: colors.background,
   },
-
   screen: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
     paddingVertical: 32,
   },
-
   card: {
     width: '100%',
     paddingHorizontal: 20,
@@ -210,19 +163,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: colors.whiteOverlay,
   },
-
   firstInput: {
     marginTop: 32,
   },
-
   input: {
     marginTop: 16,
   },
-
   button: {
     marginTop: 24,
   },
-
   loginButton: {
     marginTop: 12,
   },

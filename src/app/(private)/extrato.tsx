@@ -1,15 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import {
-  useMemo,
-  useState,
-} from 'react';
-import {
-  FlatList,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/common/AppText';
 import { Screen } from '@/components/common/Screen';
@@ -19,186 +11,89 @@ import {
   type TransactionFilter,
 } from '@/components/transactions/TransactionFilters';
 import { TransactionItem } from '@/components/transactions/TransactionItem';
-import { useTransactions } from '@/contexts/TransactionContext';
+import { useTransactions } from '@/presentation/hooks/useTransactions';
 import { colors } from '@/theme';
-import type { Transaction } from '@/types/transaction';
+import type { Transaction } from '@/domain/entities';
 
 const PAGE_SIZE = 10;
 
 function parseTransactionDate(date: string) {
-  const [day, month, year] =
-    date.split('/').map(Number);
-
-  return new Date(
-    year,
-    month - 1,
-    day,
-  ).getTime();
+  const [day, month, year] = date.split('/').map(Number);
+  return new Date(year, month - 1, day).getTime();
 }
 
 function parseFilterDate(date: string) {
-  if (date.length !== 10) {
-    return undefined;
-  }
-
-  const timestamp = new Date(
-    `${date}T00:00:00`,
-  ).getTime();
-
-  return Number.isNaN(timestamp)
-    ? undefined
-    : timestamp;
+  if (date.length !== 10) return undefined;
+  const timestamp = new Date(`${date}T00:00:00`).getTime();
+  return Number.isNaN(timestamp) ? undefined : timestamp;
 }
 
 export default function ExtratoScreen() {
   const router = useRouter();
-
-  const {
-    transactions,
-    isLoadingTransactions,
-  } = useTransactions();
+  const { data, isLoading, isFetching } = useTransactions();
 
   const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<TransactionFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  const [filter, setFilter] =
-    useState<TransactionFilter>('all');
-
-  const [
-    categoryFilter,
-    setCategoryFilter,
-  ] = useState<CategoryFilter>('all');
-
-  const [startDate, setStartDate] =
-    useState('');
-
-  const [endDate, setEndDate] =
-    useState('');
-
-  const [visibleCount, setVisibleCount] =
-    useState(PAGE_SIZE);
+  const transactions = data?.transactions ?? [];
+  const pagination = data;
 
   const filteredTransactions = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLowerCase();
+    const normalizedSearch = search.trim().toLowerCase();
+    const startTimestamp = parseFilterDate(startDate);
+    const endTimestamp = parseFilterDate(endDate);
 
-    const startTimestamp =
-      parseFilterDate(startDate);
+    return transactions.filter((transaction) => {
+      const matchesSearch = transaction.description.toLowerCase().includes(normalizedSearch);
+      const matchesOperation = filter === 'all' || transaction.operation === filter;
+      const matchesCategory = categoryFilter === 'all' || transaction.category === categoryFilter;
+      const transactionTimestamp = parseTransactionDate(transaction.date);
+      const matchesStartDate = startTimestamp === undefined || transactionTimestamp >= startTimestamp;
+      const matchesEndDate = endTimestamp === undefined || transactionTimestamp <= endTimestamp;
 
-    const endTimestamp =
-      parseFilterDate(endDate);
-
-    return transactions.filter(
-      (transaction) => {
-        const matchesSearch =
-          transaction.description
-            .toLowerCase()
-            .includes(normalizedSearch);
-
-        const matchesOperation =
-          filter === 'all' ||
-          transaction.operation === filter;
-
-        const matchesCategory =
-          categoryFilter === 'all' ||
-          transaction.category ===
-            categoryFilter;
-
-        const transactionTimestamp =
-          parseTransactionDate(
-            transaction.date,
-          );
-
-        const matchesStartDate =
-          startTimestamp === undefined ||
-          transactionTimestamp >=
-            startTimestamp;
-
-        const matchesEndDate =
-          endTimestamp === undefined ||
-          transactionTimestamp <=
-            endTimestamp;
-
-        return (
-          matchesSearch &&
-          matchesOperation &&
-          matchesCategory &&
-          matchesStartDate &&
-          matchesEndDate
-        );
-      },
-    );
-  }, [
-    transactions,
-    search,
-    filter,
-    categoryFilter,
-    startDate,
-    endDate,
-  ]);
+      return matchesSearch && matchesOperation && matchesCategory && matchesStartDate && matchesEndDate;
+    });
+  }, [transactions, search, filter, categoryFilter, startDate, endDate]);
 
   const visibleTransactions = useMemo(
-    () =>
-      filteredTransactions.slice(
-        0,
-        visibleCount,
-      ),
-    [
-      filteredTransactions,
-      visibleCount,
-    ],
+    () => filteredTransactions.slice(0, visibleCount),
+    [filteredTransactions, visibleCount],
   );
 
-  const hasMoreTransactions =
-    visibleCount <
-    filteredTransactions.length;
+  const hasMoreTransactions = visibleCount < filteredTransactions.length;
 
-  function handleSearchChange(
-    value: string,
-  ) {
+  function handleSearchChange(value: string) {
     setSearch(value);
     setVisibleCount(PAGE_SIZE);
   }
 
-  function handleFilterChange(
-    value: TransactionFilter,
-  ) {
+  function handleFilterChange(value: TransactionFilter) {
     setFilter(value);
     setVisibleCount(PAGE_SIZE);
   }
 
-  function handleCategoryChange(
-    value: CategoryFilter,
-  ) {
+  function handleCategoryChange(value: CategoryFilter) {
     setCategoryFilter(value);
     setVisibleCount(PAGE_SIZE);
   }
 
-  function handleStartDateChange(
-    value: string,
-  ) {
+  function handleStartDateChange(value: string) {
     setStartDate(value);
     setVisibleCount(PAGE_SIZE);
   }
 
-  function handleEndDateChange(
-    value: string,
-  ) {
+  function handleEndDateChange(value: string) {
     setEndDate(value);
     setVisibleCount(PAGE_SIZE);
   }
 
   function handleLoadMore() {
-    if (!hasMoreTransactions) {
-      return;
-    }
-
-    setVisibleCount((currentValue) =>
-      Math.min(
-        currentValue + PAGE_SIZE,
-        filteredTransactions.length,
-      ),
-    );
+    if (!hasMoreTransactions) return;
+    setVisibleCount((current) => Math.min(current + PAGE_SIZE, filteredTransactions.length));
   }
 
   function handleClearAdvancedFilters() {
@@ -209,44 +104,27 @@ export default function ExtratoScreen() {
   }
 
   function handleAddTransaction() {
-    router.push(
-      '/(private)/transacao/nova',
-    );
+    router.push('/(private)/transacao/nova');
   }
 
-  function handleTransactionPress(
-    transaction: Transaction,
-  ) {
+  function handleTransactionPress(transaction: Transaction) {
     router.push({
-      pathname:
-        '/(private)/transacao/[id]',
-      params: {
-        id: transaction.id,
-      },
+      pathname: '/(private)/transacao/[id]',
+      params: { id: transaction.id },
     });
   }
 
   return (
     <Screen style={styles.screen}>
       <View style={styles.header}>
-        <AppText variant="headline">
-          Extrato
-        </AppText>
-
+        <AppText variant="headline">Extrato</AppText>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Adicionar transação"
           onPress={handleAddTransaction}
-          style={({ pressed }) => [
-            styles.headerButton,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
         >
-          <Ionicons
-            name="add-outline"
-            size={30}
-            color={colors.textPrimary}
-          />
+          <Ionicons name="add-outline" size={30} color={colors.textPrimary} />
         </Pressable>
       </View>
 
@@ -256,53 +134,32 @@ export default function ExtratoScreen() {
         categoryFilter={categoryFilter}
         startDate={startDate}
         endDate={endDate}
-        onSearchChange={
-          handleSearchChange
-        }
-        onFilterChange={
-          handleFilterChange
-        }
-        onCategoryFilterChange={
-          handleCategoryChange
-        }
-        onStartDateChange={
-          handleStartDateChange
-        }
-        onEndDateChange={
-          handleEndDateChange
-        }
-        onClearAdvancedFilters={
-          handleClearAdvancedFilters
-        }
+        onSearchChange={handleSearchChange}
+        onFilterChange={handleFilterChange}
+        onCategoryFilterChange={handleCategoryChange}
+        onStartDateChange={handleStartDateChange}
+        onEndDateChange={handleEndDateChange}
+        onClearAdvancedFilters={handleClearAdvancedFilters}
       />
 
       <FlatList
         data={visibleTransactions}
-        keyExtractor={(transaction) =>
-          transaction.id
-        }
+        keyExtractor={(transaction) => transaction.id}
         renderItem={({ item }) => (
           <TransactionItem
             transaction={item}
-            onPress={() => {
-              handleTransactionPress(item);
-            }}
+            onPress={() => handleTransactionPress(item)}
           />
         )}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={
-          styles.listContent
-        }
+        contentContainerStyle={styles.listContent}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.4}
         ListFooterComponent={
           hasMoreTransactions ? (
             <View style={styles.listFooter}>
-              <AppText
-                color={colors.textSecondary}
-                align="center"
-              >
+              <AppText color={colors.textSecondary} align="center">
                 Carregando mais transações...
               </AppText>
             </View>
@@ -311,23 +168,16 @@ export default function ExtratoScreen() {
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons
-              name={
-                isLoadingTransactions
-                  ? 'cloud-download-outline'
-                  : 'receipt-outline'
-              }
+              name={isLoading ? 'cloud-download-outline' : 'receipt-outline'}
               size={40}
               color={colors.textMuted}
             />
-
             <AppText
               color={colors.textSecondary}
               align="center"
               style={styles.emptyText}
             >
-              {isLoadingTransactions
-                ? 'Carregando transações...'
-                : 'Nenhuma transação encontrada.'}
+              {isLoading ? 'Carregando transações...' : 'Nenhuma transação encontrada.'}
             </AppText>
           </View>
         }
@@ -343,42 +193,35 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingTop: 16,
   },
-
   header: {
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   headerButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   listContent: {
     flexGrow: 1,
     paddingTop: 12,
     paddingBottom: 24,
   },
-
   listFooter: {
     paddingVertical: 20,
   },
-
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
   },
-
   emptyText: {
     marginTop: 12,
   },
-
   pressed: {
     opacity: 0.7,
   },

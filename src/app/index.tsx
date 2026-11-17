@@ -1,19 +1,16 @@
 import { Redirect } from 'expo-router';
-
-import { useUser } from '@/contexts/UserContext';
+import { useAuthStore } from '@/presentation/store/authStore';
 
 export default function Index() {
-  const { userName, isUserLoaded } = useUser();
+  const { isAuthenticated, isUserLoaded } = useAuthStore();
 
   if (!isUserLoaded) {
     return null;
   }
 
-  if (userName) {
-    return (
-      <Redirect href="/(private)/dashboard" />
-    );
+  if (isAuthenticated) {
+    return <Redirect href="/(private)/dashboard" />;
   }
 
- return <Redirect href="/(auth)/login" />;
+  return <Redirect href="/(auth)/login" />;
 }

@@ -12,15 +12,16 @@ export const transactionCategories = [
   'Outros',
 ] as const;
 
-export type TransactionCategory =
-  (typeof transactionCategories)[number];
+export type TransactionCategory = (typeof transactionCategories)[number];
+
+export const transactionOperations = ['income', 'expense'] as const;
+export type TransactionOperation = (typeof transactionOperations)[number];
+
+export const transactionTypes = ['pix', 'boleto', 'saque', 'deposito', 'ted', 'doc'] as const;
+export type TransactionType = (typeof transactionTypes)[number];
 
 function parseAmount(value: string) {
-  return Number(
-    value
-      .replace(/\./g, '')
-      .replace(',', '.'),
-  );
+  return Number(value.replace(/\./g, '').replace(',', '.'));
 }
 
 export const transactionSchema = z.object({
@@ -28,10 +29,7 @@ export const transactionSchema = z.object({
     .string()
     .trim()
     .min(3, 'Informe pelo menos 3 caracteres')
-    .max(
-      80,
-      'A descrição deve ter no máximo 80 caracteres',
-    ),
+    .max(80, 'A descrição deve ter no máximo 80 caracteres'),
 
   amount: z
     .string()
@@ -40,18 +38,12 @@ export const transactionSchema = z.object({
     .refine(
       (value) => {
         const amount = parseAmount(value);
-
-        return (
-          Number.isFinite(amount) &&
-          amount > 0
-        );
+        return Number.isFinite(amount) && amount > 0;
       },
-      {
-        message: 'Informe um valor maior que zero',
-      },
+      { message: 'Informe um valor maior que zero' },
     ),
 
-  operation: z.enum(['income', 'expense'], {
+  operation: z.enum(transactionOperations, {
     message: 'Selecione o tipo da transação',
   }),
 
@@ -64,18 +56,11 @@ export const transactionSchema = z.object({
     .min(1, 'Informe a data')
     .refine(
       (value) => {
-        const date = new Date(
-          `${value}T00:00:00`,
-        );
-
+        const date = new Date(`${value}T00:00:00`);
         return !Number.isNaN(date.getTime());
       },
-      {
-        message: 'Informe uma data válida',
-      },
+      { message: 'Informe uma data válida' },
     ),
 });
 
-export type TransactionFormData = z.infer<
-  typeof transactionSchema
->;
+export type TransactionFormData = z.infer<typeof transactionSchema>;

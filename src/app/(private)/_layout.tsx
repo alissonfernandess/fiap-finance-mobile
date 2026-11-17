@@ -1,29 +1,26 @@
 import { Redirect, Stack } from 'expo-router';
-
-import { useUser } from '@/contexts/UserContext';
+import { useAuthStore } from '@/presentation/store/authStore';
+import { UserProvider } from '@/contexts/UserContext';
 
 export default function PrivateLayout() {
-  const {
-  isAuthenticated,
-  isUserLoaded,
-} = useUser();
+  const { isAuthenticated, isUserLoaded } = useAuthStore();
 
   if (!isUserLoaded) {
     return null;
   }
 
- if (!isAuthenticated) {
-    return (
-      <Redirect href="/(auth)/login" />
-    );
+  if (!isAuthenticated) {
+    return <Redirect href="/(auth)/login" />;
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}
-    />
+    <UserProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          animation: 'slide_from_right',
+        }}
+      />
+    </UserProvider>
   );
 }
